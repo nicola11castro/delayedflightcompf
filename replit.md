@@ -43,13 +43,16 @@ FlightClaim Pro is a full-stack web application for processing flight compensati
 - **DocuSign**: Electronic signature for POA documents
 - **Email Service**: Nodemailer for automated claim notifications
 - **File Storage**: Local file system (designed for cloud migration)
+- **Smart Assistant**: Context-aware Clippy-style guide with airline and delay reason intelligence
 
 ### User Interface Features
 - Responsive design with mobile-first approach
+- Authentic Windows 98 retro styling with beveled borders and MS Sans Serif typography
 - Dark/light theme support with system preference detection
 - Voice search capability for FAQ interactions
 - Real-time commission calculator
 - Claim tracking system with status visualization
+- Hidden Clippy-style assistant Easter egg with context-aware guidance and smart tips
 
 ## Data Flow
 
@@ -104,6 +107,8 @@ FlightClaim Pro is a full-stack web application for processing flight compensati
 ```
 Changelog:
 - June 25, 2025. Initial setup
+- June 25, 2025. Added Windows 98 retro styling throughout entire application
+- June 25, 2025. Implemented hidden Clippy-style assistant Easter egg with smart guidance features
 ```
 
 ## User Preferences

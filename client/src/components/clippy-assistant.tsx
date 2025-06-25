@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, MessageCircle, HelpCircle, AlertTriangle, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { delayReasons, getDelayReasonValidity, calculateCompensation } from "@/data/airlines";
+import { getDelayReasonValidity, calculateCompensation } from "@/data/airlines";
 
 interface ClippyMessage {
   id: string;
