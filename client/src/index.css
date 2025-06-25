@@ -16,25 +16,25 @@
   --win98-green: hsl(120, 100%, 25%);   /* #008000 */
   
   /* Shadcn compatibility with Win98 theme */
-  --background: var(--win98-silver);
-  --foreground: var(--win98-black);
-  --muted: var(--win98-light-gray);
-  --muted-foreground: var(--win98-dark-gray);
-  --popover: var(--win98-silver);
-  --popover-foreground: var(--win98-black);
-  --card: var(--win98-silver);
-  --card-foreground: var(--win98-black);
-  --border: var(--win98-dark-gray);
-  --input: var(--win98-white);
-  --primary: var(--win98-teal);
-  --primary-foreground: var(--win98-white);
-  --secondary: var(--win98-green);
-  --secondary-foreground: var(--win98-white);
-  --accent: var(--win98-blue);
-  --accent-foreground: var(--win98-white);
-  --destructive: var(--win98-red);
-  --destructive-foreground: var(--win98-white);
-  --ring: var(--win98-black);
+  --background: 0 0% 75%;
+  --foreground: 0 0% 0%;
+  --muted: 0 0% 87%;
+  --muted-foreground: 0 0% 50%;
+  --popover: 0 0% 75%;
+  --popover-foreground: 0 0% 0%;
+  --card: 0 0% 75%;
+  --card-foreground: 0 0% 0%;
+  --border: 0 0% 50%;
+  --input: 0 0% 100%;
+  --primary: 180 100% 25%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 120 100% 25%;
+  --secondary-foreground: 0 0% 100%;
+  --accent: 240 100% 50%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 100% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --ring: 0 0% 0%;
   --radius: 0rem;
 }
 
@@ -50,25 +50,25 @@
   --win98-teal: hsl(180, 80%, 40%);
   --win98-green: hsl(120, 80%, 40%);
   
-  --background: var(--win98-white);
-  --foreground: var(--win98-black);
-  --muted: var(--win98-light-gray);
-  --muted-foreground: var(--win98-dark-gray);
-  --popover: var(--win98-silver);
-  --popover-foreground: var(--win98-black);
-  --card: var(--win98-silver);
-  --card-foreground: var(--win98-black);
-  --border: var(--win98-dark-gray);
-  --input: var(--win98-white);
-  --primary: var(--win98-teal);
-  --primary-foreground: var(--win98-white);
-  --secondary: var(--win98-green);
-  --secondary-foreground: var(--win98-white);
-  --accent: var(--win98-blue);
-  --accent-foreground: var(--win98-white);
-  --destructive: var(--win98-red);
-  --destructive-foreground: var(--win98-white);
-  --ring: var(--win98-black);
+  --background: 0 0% 15%;
+  --foreground: 0 0% 90%;
+  --muted: 0 0% 20%;
+  --muted-foreground: 0 0% 40%;
+  --popover: 0 0% 25%;
+  --popover-foreground: 0 0% 90%;
+  --card: 0 0% 25%;
+  --card-foreground: 0 0% 90%;
+  --border: 0 0% 40%;
+  --input: 0 0% 15%;
+  --primary: 180 80% 40%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 120 80% 40%;
+  --secondary-foreground: 0 0% 100%;
+  --accent: 240 80% 60%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 80% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --ring: 0 0% 90%;
 }
 
 /* Windows 98 Base Styles */
@@ -179,15 +179,15 @@ body {
 
 @layer components {
   .btn-primary {
-    @apply bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-all duration-200 inline-flex items-center justify-center;
+    @apply bg-primary hover:brightness-90 text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-all duration-200 inline-flex items-center justify-center;
   }
 
   .btn-secondary {
-    @apply bg-secondary hover:bg-secondary/90 text-secondary-foreground font-semibold py-3 px-6 rounded-lg transition-all duration-200 inline-flex items-center justify-center;
+    @apply bg-secondary hover:brightness-90 text-secondary-foreground font-semibold py-3 px-6 rounded-lg transition-all duration-200 inline-flex items-center justify-center;
   }
 
   .btn-accent {
-    @apply bg-accent hover:bg-accent/90 text-accent-foreground font-semibold py-3 px-6 rounded-lg transition-all duration-200 inline-flex items-center justify-center;
+    @apply bg-accent hover:brightness-90 text-accent-foreground font-semibold py-3 px-6 rounded-lg transition-all duration-200 inline-flex items-center justify-center;
   }
 
   .btn-outline {
@@ -195,7 +195,7 @@ body {
   }
 
   .commission-highlight {
-    @apply bg-gradient-to-r from-accent/10 to-accent/20 border border-accent/30 rounded-xl p-6;
+    @apply bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-300 rounded-xl p-6;
   }
 
   .claim-status-submitted {
@@ -263,11 +263,11 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-muted-foreground/30 rounded-full;
+  @apply bg-muted-foreground bg-opacity-30 rounded-full;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-muted-foreground/50;
+  @apply bg-muted-foreground bg-opacity-50;
 }
 
 /* Focus visible improvements */
