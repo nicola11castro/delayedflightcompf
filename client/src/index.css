@@ -4,7 +4,7 @@
 @tailwind utilities;
 
 :root {
-  /* Light mode retro theme - bright neon on dark backgrounds */
+  /* Default retro theme - bright neon on dark backgrounds */
   --background: 270 60% 8%;                /* Very dark purple background */
   --foreground: 180 100% 85%;              /* Bright cyan text */
   --muted: 270 50% 15%;                    /* Dark purple for muted areas */
@@ -25,6 +25,29 @@
   --destructive-foreground: 0 0% 100%;     /* White text on red */
   --ring: 180 100% 50%;                    /* Cyan focus ring */
   --radius: 0.5rem;
+}
+
+/* Light mode - if user toggles to light */
+.light {
+  --background: 300 50% 98%;               /* Very light purple background */
+  --foreground: 270 100% 15%;              /* Very dark purple text */
+  --muted: 300 30% 90%;                    /* Light muted areas */
+  --muted-foreground: 270 60% 40%;         /* Medium purple for muted text */
+  --popover: 300 50% 99%;                  /* Very light popover */
+  --popover-foreground: 270 100% 15%;      /* Very dark purple */
+  --card: 300 50% 99%;                     /* Very light card background */
+  --card-foreground: 270 100% 15%;         /* Very dark card text */
+  --border: 320 100% 50%;                  /* Hot pink borders */
+  --input: 300 50% 99%;                    /* Very light input background */
+  --primary: 180 100% 30%;                 /* Dark cyan primary */
+  --primary-foreground: 0 0% 100%;         /* White text on primary */
+  --secondary: 320 100% 40%;               /* Dark hot pink secondary */
+  --secondary-foreground: 0 0% 100%;       /* White text on secondary */
+  --accent: 30 100% 45%;                   /* Dark orange accent */
+  --accent-foreground: 0 0% 100%;          /* White text on accent */
+  --destructive: 0 100% 50%;               /* Red for destructive actions */
+  --destructive-foreground: 0 0% 100%;     /* White text on red */
+  --ring: 180 100% 30%;                    /* Dark cyan focus ring */
 }
 
 .dark {

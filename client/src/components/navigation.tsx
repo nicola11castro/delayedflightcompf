@@ -25,13 +25,13 @@ export function Navigation() {
   };
 
   return (
-    <nav className="bg-white dark:bg-dark-surface shadow-lg sticky top-0 z-50 transition-colors duration-300">
+    <nav className="bg-card border-b-2 border-border shadow-lg sticky top-0 z-50 retro-shadow">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
-            <Plane className="text-primary text-2xl" />
-            <span className="font-inter font-bold text-xl text-gray-900 dark:text-white">
+            <Plane className="text-primary text-2xl retro-glow" />
+            <span className="font-bold text-xl text-foreground retro-glow">
               FlightClaim Pro
             </span>
           </Link>
@@ -42,7 +42,7 @@ export function Navigation() {
               <button
                 key={item.href}
                 onClick={() => scrollToSection(item.href)}
-                className="text-gray-700 dark:text-gray-300 hover:text-primary transition-colors cursor-pointer"
+                className="text-foreground hover:text-primary transition-colors cursor-pointer font-bold uppercase tracking-wide"
               >
                 {item.label}
               </button>
@@ -52,7 +52,7 @@ export function Navigation() {
               variant="ghost"
               size="icon"
               onClick={toggleTheme}
-              className="text-gray-700 dark:text-gray-300 hover:text-primary"
+              className="text-foreground hover:text-accent retro-button"
             >
               {theme === "dark" ? (
                 <Sun className="h-5 w-5" />
@@ -68,7 +68,7 @@ export function Navigation() {
               variant="ghost"
               size="icon"
               onClick={toggleTheme}
-              className="text-gray-700 dark:text-gray-300"
+              className="text-foreground hover:text-accent retro-button"
             >
               {theme === "dark" ? (
                 <Sun className="h-5 w-5" />
@@ -81,7 +81,7 @@ export function Navigation() {
               variant="ghost"
               size="icon"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="text-gray-700 dark:text-gray-300"
+              className="text-foreground hover:text-primary retro-button"
             >
               {isMobileMenuOpen ? (
                 <X className="h-5 w-5" />

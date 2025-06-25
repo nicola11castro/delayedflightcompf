@@ -10,24 +10,24 @@ export function Footer() {
   };
 
   return (
-    <footer className="bg-gray-900 text-white py-16">
+    <footer className="bg-card border-t-2 border-border text-foreground py-16 retro-shadow">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid md:grid-cols-4 gap-8">
           {/* Company Info */}
           <div className="md:col-span-2">
             <div className="flex items-center space-x-2 mb-4">
-              <Plane className="text-primary text-2xl" />
-              <span className="font-inter font-bold text-xl">FlightClaim Pro</span>
+              <Plane className="text-primary text-2xl retro-glow" />
+              <span className="font-bold text-xl retro-glow">FlightClaim Pro</span>
             </div>
-            <p className="text-gray-400 mb-6 max-w-md">
+            <p className="text-muted-foreground mb-6 max-w-md">
               Get the compensation you deserve for flight delays and cancellations. 
               Transparent 15% commission, no win no fee guarantee.
             </p>
             
             {/* Commission Summary */}
-            <div className="bg-gray-800 rounded-lg p-4 mb-6">
-              <h4 className="font-semibold mb-2">Our Commission Promise</h4>
-              <ul className="text-sm text-gray-400 space-y-1">
+            <div className="retro-card p-4 mb-6">
+              <h4 className="font-semibold mb-2 text-primary">Our Commission Promise</h4>
+              <ul className="text-sm text-muted-foreground space-y-1">
                 <li className="flex items-center">
                   <CheckCircle className="w-4 h-4 text-secondary mr-2 flex-shrink-0" />
                   Only 15% when you win
