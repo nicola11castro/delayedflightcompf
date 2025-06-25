@@ -4,213 +4,146 @@
 @tailwind utilities;
 
 :root {
-  /* Windows 98 color palette */
-  --win98-silver: hsl(0, 0%, 75%);      /* #C0C0C0 */
-  --win98-dark-gray: hsl(0, 0%, 50%);   /* #808080 */
-  --win98-light-gray: hsl(0, 0%, 87%);  /* #DEDEDE */
-  --win98-white: hsl(0, 0%, 100%);      /* #FFFFFF */
-  --win98-black: hsl(0, 0%, 0%);        /* #000000 */
-  --win98-blue: hsl(240, 100%, 50%);    /* #0000FF */
-  --win98-red: hsl(0, 100%, 50%);       /* #FF0000 */
-  --win98-teal: hsl(180, 100%, 25%);    /* #008080 */
-  --win98-green: hsl(120, 100%, 25%);   /* #008000 */
-  
-  /* Shadcn compatibility with Win98 theme */
-  --background: 0 0% 98%;
-  --foreground: 0 0% 5%;
-  --muted: 0 0% 92%;
-  --muted-foreground: 0 0% 35%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 5%;
-  --card: 0 0% 100%;
-  --card-foreground: 0 0% 5%;
-  --border: 0 0% 85%;
-  --input: 0 0% 100%;
-  --primary: 180 100% 20%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 120 100% 20%;
-  --secondary-foreground: 0 0% 100%;
-  --accent: 240 100% 40%;
-  --accent-foreground: 0 0% 100%;
-  --destructive: 0 100% 45%;
-  --destructive-foreground: 0 0% 100%;
-  --ring: 0 0% 5%;
-  --radius: 0rem;
+  /* Light mode retro theme - bright neon on dark backgrounds */
+  --background: 270 60% 8%;                /* Very dark purple background */
+  --foreground: 180 100% 85%;              /* Bright cyan text */
+  --muted: 270 50% 15%;                    /* Dark purple for muted areas */
+  --muted-foreground: 280 70% 60%;         /* Purple for muted text */
+  --popover: 270 50% 12%;                  /* Popover background */
+  --popover-foreground: 180 100% 85%;      /* Bright cyan */
+  --card: 270 40% 10%;                     /* Card background */
+  --card-foreground: 180 100% 85%;         /* Card text */
+  --border: 320 100% 60%;                  /* Hot pink borders */
+  --input: 270 50% 12%;                    /* Input background */
+  --primary: 180 100% 50%;                 /* Bright cyan primary */
+  --primary-foreground: 270 60% 8%;        /* Dark text on primary */
+  --secondary: 320 100% 70%;               /* Hot pink secondary */
+  --secondary-foreground: 270 60% 8%;      /* Dark text on secondary */
+  --accent: 30 100% 60%;                   /* Orange accent */
+  --accent-foreground: 270 60% 8%;         /* Dark text on accent */
+  --destructive: 0 100% 60%;               /* Red for destructive actions */
+  --destructive-foreground: 0 0% 100%;     /* White text on red */
+  --ring: 180 100% 50%;                    /* Cyan focus ring */
+  --radius: 0.5rem;
 }
 
 .dark {
-  /* Dark mode keeps Win98 aesthetic but with darker variants */
-  --win98-silver: hsl(0, 0%, 25%);
-  --win98-dark-gray: hsl(0, 0%, 40%);
-  --win98-light-gray: hsl(0, 0%, 20%);
-  --win98-white: hsl(0, 0%, 15%);
-  --win98-black: hsl(0, 0%, 90%);
-  --win98-blue: hsl(240, 80%, 60%);
-  --win98-red: hsl(0, 80%, 60%);
-  --win98-teal: hsl(180, 80%, 40%);
-  --win98-green: hsl(120, 80%, 40%);
-  
-  --background: 222 84% 5%;
-  --foreground: 210 40% 98%;
-  --muted: 217 33% 17%;
-  --muted-foreground: 215 20% 65%;
-  --popover: 222 84% 5%;
-  --popover-foreground: 210 40% 98%;
-  --card: 222 84% 5%;
-  --card-foreground: 210 40% 98%;
-  --border: 217 33% 17%;
-  --input: 217 33% 17%;
-  --primary: 180 80% 40%;
-  --primary-foreground: 210 40% 98%;
-  --secondary: 120 80% 40%;
-  --secondary-foreground: 210 40% 98%;
-  --accent: 240 80% 60%;
-  --accent-foreground: 210 40% 98%;
-  --destructive: 0 80% 60%;
-  --destructive-foreground: 210 40% 98%;
-  --ring: 210 40% 98%;
+  /* Dark mode - even more intense retro colors */
+  --background: 270 70% 3%;                /* Almost black purple */
+  --foreground: 180 100% 90%;              /* Very bright cyan text */
+  --muted: 270 60% 8%;                     /* Dark purple for muted areas */
+  --muted-foreground: 280 80% 70%;         /* Bright purple for muted text */
+  --popover: 270 60% 5%;                   /* Very dark popover */
+  --popover-foreground: 180 100% 90%;      /* Very bright cyan */
+  --card: 270 60% 5%;                      /* Very dark card background */
+  --card-foreground: 180 100% 90%;         /* Very bright card text */
+  --border: 320 100% 70%;                  /* Brighter hot pink borders */
+  --input: 270 60% 8%;                     /* Dark input background */
+  --primary: 180 100% 60%;                 /* Even brighter cyan primary */
+  --primary-foreground: 270 70% 3%;        /* Very dark text on primary */
+  --secondary: 320 100% 75%;               /* Brighter hot pink secondary */
+  --secondary-foreground: 270 70% 3%;      /* Very dark text on secondary */
+  --accent: 30 100% 65%;                   /* Brighter orange accent */
+  --accent-foreground: 270 70% 3%;         /* Very dark text on accent */
+  --destructive: 0 100% 65%;               /* Brighter red */
+  --destructive-foreground: 0 0% 100%;     /* White text on red */
+  --ring: 180 100% 60%;                    /* Bright cyan focus ring */
 }
 
-/* Windows 98 Base Styles */
-* {
-  border-color: hsl(var(--border));
-  font-family: 'VT323', 'MS Sans Serif', sans-serif;
-}
-
+/* Custom retro body styles */
 body {
-  color: hsl(var(--foreground));
+  font-family: 'VT323', monospace;
   background: hsl(var(--background));
-  font-family: 'VT323', 'MS Sans Serif', sans-serif;
-  font-size: 16px;
+  color: hsl(var(--foreground));
+  transition: background-color 0.3s ease, color 0.3s ease;
+  font-size: 18px;
+  line-height: 1.4;
 }
 
-/* Windows 98 beveled border effect */
-.win98-border {
-  border: 2px solid;
-  border-color: hsl(var(--win98-white)) hsl(var(--win98-dark-gray)) hsl(var(--win98-dark-gray)) hsl(var(--win98-white));
-  background: hsl(var(--win98-silver));
+/* Retro button styles */
+.retro-button {
+  background: linear-gradient(145deg, hsl(var(--primary)), hsl(var(--accent)));
+  border: 2px solid hsl(var(--border));
+  box-shadow: 0 0 15px hsl(var(--primary) / 0.4);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  transition: all 0.3s ease;
+  font-family: 'VT323', monospace;
 }
 
-.win98-inset {
-  border: 2px solid;
-  border-color: hsl(var(--win98-dark-gray)) hsl(var(--win98-white)) hsl(var(--win98-white)) hsl(var(--win98-dark-gray));
-  background: hsl(var(--win98-white));
+.retro-button:hover {
+  box-shadow: 0 0 25px hsl(var(--primary) / 0.7);
+  transform: translateY(-2px);
 }
 
-.win98-button {
-  border: 2px solid;
-  border-color: hsl(var(--win98-white)) hsl(var(--win98-dark-gray)) hsl(var(--win98-dark-gray)) hsl(var(--win98-white));
-  background: hsl(var(--win98-silver));
-  padding: 4px 12px;
-  font-family: 'VT323', 'MS Sans Serif', sans-serif;
-  font-size: 14px;
-  cursor: pointer;
-  transition: none;
+/* Retro card styles */
+.retro-card {
+  background: hsl(var(--card));
+  border: 2px solid hsl(var(--border));
+  box-shadow: 0 0 20px hsl(var(--border) / 0.3);
+  backdrop-filter: blur(10px);
 }
 
-.win98-button:hover {
-  background: hsl(var(--win98-light-gray));
+/* Retro glow effect */
+.retro-glow {
+  text-shadow: 0 0 10px currentColor;
+  animation: pulse 2s infinite;
 }
 
-.win98-button:active {
-  border-color: hsl(var(--win98-dark-gray)) hsl(var(--win98-white)) hsl(var(--win98-white)) hsl(var(--win98-dark-gray));
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
 }
 
-.win98-table {
-  border-collapse: collapse;
-  border: 2px solid;
-  border-color: hsl(var(--win98-dark-gray)) hsl(var(--win98-white)) hsl(var(--win98-white)) hsl(var(--win98-dark-gray));
-  background: hsl(var(--win98-white));
-}
-
-.win98-table th,
-.win98-table td {
-  border: 1px solid hsl(var(--win98-dark-gray));
-  padding: 4px 8px;
-  font-family: 'VT323', 'MS Sans Serif', sans-serif;
-  font-size: 14px;
-}
-
-.win98-table th {
-  background: hsl(var(--win98-silver));
-  border-color: hsl(var(--win98-white)) hsl(var(--win98-dark-gray)) hsl(var(--win98-dark-gray)) hsl(var(--win98-white));
-}
-
-.win98-input {
-  border: 2px solid;
-  border-color: hsl(var(--win98-dark-gray)) hsl(var(--win98-white)) hsl(var(--win98-white)) hsl(var(--win98-dark-gray));
-  background: hsl(var(--win98-white));
-  padding: 2px 4px;
-  font-family: 'VT323', 'MS Sans Serif', sans-serif;
-  font-size: 14px;
-}
-
-.win98-dialog {
-  border: 2px solid;
-  border-color: hsl(var(--win98-white)) hsl(var(--win98-dark-gray)) hsl(var(--win98-dark-gray)) hsl(var(--win98-white));
-  background: hsl(var(--win98-silver));
-  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.win98-title-bar {
-  background: linear-gradient(90deg, hsl(var(--win98-teal)) 0%, hsl(var(--win98-blue)) 100%);
-  color: hsl(var(--win98-white));
-  padding: 2px 6px;
-  font-family: 'VT323', 'MS Sans Serif', sans-serif;
-  font-weight: bold;
-  font-size: 14px;
-}
-
-/* Blinking cursor animation */
-@keyframes blink {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0; }
-}
-
-.blinking-cursor::after {
-  content: '|';
-  animation: blink 1s infinite;
+/* Retro grid background */
+.retro-grid {
+  background-image: 
+    linear-gradient(hsl(var(--border) / 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--border) / 0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-primary hover:brightness-90 text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-all duration-200 inline-flex items-center justify-center;
+    @apply bg-primary hover:brightness-110 text-primary-foreground font-bold py-3 px-6 rounded-lg transition-all duration-200 inline-flex items-center justify-center retro-button;
   }
 
   .btn-secondary {
-    @apply bg-secondary hover:brightness-90 text-secondary-foreground font-semibold py-3 px-6 rounded-lg transition-all duration-200 inline-flex items-center justify-center;
+    @apply bg-secondary hover:brightness-110 text-secondary-foreground font-bold py-3 px-6 rounded-lg transition-all duration-200 inline-flex items-center justify-center retro-button;
   }
 
   .btn-accent {
-    @apply bg-accent hover:brightness-90 text-accent-foreground font-semibold py-3 px-6 rounded-lg transition-all duration-200 inline-flex items-center justify-center;
+    @apply bg-accent hover:brightness-110 text-accent-foreground font-bold py-3 px-6 rounded-lg transition-all duration-200 inline-flex items-center justify-center retro-button;
   }
 
   .btn-outline {
-    @apply border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-all duration-200 inline-flex items-center justify-center;
+    @apply border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground font-bold py-3 px-6 rounded-lg transition-all duration-200 inline-flex items-center justify-center;
+    box-shadow: 0 0 10px hsl(var(--primary) / 0.3);
   }
 
   .commission-highlight {
-    @apply bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-300 rounded-xl p-6;
+    @apply retro-card p-6;
+    background: linear-gradient(to right, hsl(var(--primary) / 0.1), hsl(var(--accent) / 0.1));
   }
 
   .claim-status-submitted {
-    @apply bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200;
+    @apply bg-blue-500/20 text-blue-300 border border-blue-500/50;
   }
 
   .claim-status-under-review {
-    @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200;
+    @apply bg-yellow-500/20 text-yellow-300 border border-yellow-500/50;
   }
 
   .claim-status-approved {
-    @apply bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200;
+    @apply bg-green-500/20 text-green-300 border border-green-500/50;
   }
 
   .claim-status-rejected {
-    @apply bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200;
+    @apply bg-red-500/20 text-red-300 border border-red-500/50;
   }
 
   .claim-status-paid {
-    @apply bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200;
+    @apply bg-emerald-500/20 text-emerald-300 border border-emerald-500/50;
   }
 }
 
@@ -226,15 +159,15 @@ body {
   .text-gradient {
     @apply bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent;
   }
+
+  .retro-shadow {
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
+  }
 }
 
 @keyframes fadeIn {
-  from { 
-    opacity: 0; 
-  }
-  to { 
-    opacity: 1; 
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes slideUp {
@@ -250,44 +183,71 @@ body {
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 12px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-muted;
+  background: hsl(var(--muted));
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-400 rounded-full;
+  background: hsl(var(--primary));
+  border-radius: 6px;
+  box-shadow: 0 0 10px hsl(var(--primary) / 0.5);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-600;
+  background: hsl(var(--accent));
+  box-shadow: 0 0 15px hsl(var(--accent) / 0.7);
 }
 
-/* Focus visible improvements */
+/* Focus improvements */
 .focus-visible\:outline-primary:focus-visible {
   outline: 2px solid hsl(var(--primary));
   outline-offset: 2px;
+  box-shadow: 0 0 10px hsl(var(--primary) / 0.5);
 }
 
 /* Loading spinner */
 .spinner {
-  @apply inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin;
+  @apply inline-block w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin;
+  box-shadow: 0 0 10px hsl(var(--primary) / 0.5);
 }
 
 /* Voice search pulse animation */
 .voice-recording {
-  animation: pulse-red 1.5s infinite;
+  animation: pulse-glow 1.5s infinite;
 }
 
-@keyframes pulse-red {
+@keyframes pulse-glow {
   0%, 100% {
     opacity: 1;
     transform: scale(1);
+    box-shadow: 0 0 10px hsl(var(--destructive) / 0.5);
   }
   50% {
-    opacity: 0.7;
+    opacity: 0.8;
     transform: scale(1.05);
+    box-shadow: 0 0 20px hsl(var(--destructive) / 0.8);
   }
+}
+
+/* Retro input styles */
+input, textarea, select {
+  background: hsl(var(--input)) !important;
+  border: 2px solid hsl(var(--border)) !important;
+  color: hsl(var(--foreground)) !important;
+  font-family: 'VT323', monospace !important;
+}
+
+input:focus, textarea:focus, select:focus {
+  box-shadow: 0 0 15px hsl(var(--primary) / 0.5) !important;
+  border-color: hsl(var(--primary)) !important;
+}
+
+/* Retro navigation */
+nav {
+  background: hsl(var(--card)) !important;
+  border-bottom: 2px solid hsl(var(--border)) !important;
+  box-shadow: 0 2px 20px hsl(var(--border) / 0.3) !important;
 }
