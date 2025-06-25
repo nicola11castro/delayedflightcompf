@@ -81,7 +81,6 @@ export function Hero() {
                     <span>Commission only on success</span>
                   </div>
                 </div>
-                </div>
               </div>
             </div>
           </div>
