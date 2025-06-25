@@ -14,7 +14,7 @@ interface ClippyMessage {
 const clippyMessages: ClippyMessage[] = [
   {
     id: "welcome",
-    text: "Hi! I'm your flight compensation assistant. I notice you're looking for help with airline delays. Click me for expert tips!",
+    text: "✈️ Hi there! I'm your friendly flight compensation assistant. I've helped thousands of passengers get compensation for delays. Ready to take off?",
     context: "general",
   },
   {
@@ -57,7 +57,7 @@ const clippyMessages: ClippyMessage[] = [
   },
   {
     id: "easter-egg",
-    text: "Psst... You found me! 🎉 I'm a throwback to the Windows 98 days. Remember when assistants had personalities? I still do!",
+    text: "✈️ You found the hidden assistant! I'm a cute little airplane here to guide you through compensation claims. Ready for takeoff? 🛫",
     context: "general"
   },
   {
@@ -265,15 +265,27 @@ export function ClippyAssistant() {
         <div 
           onClick={toggleClippy}
           className="w-16 h-16 win98-panel cursor-pointer hover:brightness-110 transition-all duration-200 flex items-center justify-center clippy-character"
-          title="Click for help!"
+          title="Click for flight compensation help!"
         >
-          {/* Simple Clippy representation */}
+          {/* Cute Airplane Character */}
           <div className="relative">
-            <div className="w-8 h-8 bg-accent border-2 border-black flex items-center justify-center">
-              <div className="w-2 h-2 bg-black"></div>
+            {/* Main fuselage */}
+            <div className="w-10 h-4 bg-accent border-2 border-black rounded-full flex items-center justify-center relative">
+              {/* Cockpit windows */}
+              <div className="w-2 h-1 bg-black rounded-full mr-2"></div>
+              <div className="w-1 h-1 bg-black rounded-full"></div>
             </div>
-            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-accent transform rotate-45 border border-black"></div>
-            <div className="absolute -top-1 -left-1 w-2 h-2 bg-accent border border-black"></div>
+            
+            {/* Wings */}
+            <div className="absolute top-1 -left-2 w-6 h-2 bg-accent border border-black transform -rotate-12"></div>
+            <div className="absolute top-1 -right-2 w-6 h-2 bg-accent border border-black transform rotate-12"></div>
+            
+            {/* Tail */}
+            <div className="absolute -bottom-1 right-0 w-3 h-3 bg-accent border border-black transform rotate-45"></div>
+            
+            {/* Propeller */}
+            <div className="absolute top-1.5 -left-4 w-1 h-3 bg-black transform rotate-45 animate-spin"></div>
+            <div className="absolute top-1.5 -left-4 w-1 h-3 bg-black transform -rotate-45 animate-spin"></div>
           </div>
         </div>
       </div>
@@ -293,8 +305,8 @@ export function ClippyAssistant() {
               <h4 className="text-xs font-bold flex items-center">
                 {currentMessage.icon === 'warning' && <AlertTriangle className="w-3 h-3 mr-1 text-destructive" />}
                 {currentMessage.icon === 'success' && <CheckCircle className="w-3 h-3 mr-1 text-secondary" />}
-                {!currentMessage.icon && <MessageCircle className="w-3 h-3 mr-1" />}
-                Claim Assistant
+                {!currentMessage.icon && <span className="mr-1">✈️</span>}
+                Flight Assistant
               </h4>
               <Button
                 onClick={closeClippy}
