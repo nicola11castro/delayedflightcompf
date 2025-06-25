@@ -140,6 +140,46 @@ body {
   color: hsl(var(--primary-foreground)) !important;
 }
 
+/* Clippy animations */
+@keyframes clippy-bounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-5px);
+  }
+  60% {
+    transform: translateY(-3px);
+  }
+}
+
+.clippy-character {
+  animation: clippy-bounce 2s infinite;
+}
+
+.clippy-character:hover {
+  animation-duration: 0.5s;
+}
+
+/* Speech bubble animation */
+@keyframes bubble-pop {
+  0% {
+    transform: scale(0.8) translateY(10px);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05) translateY(-2px);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+.clippy-bubble {
+  animation: bubble-pop 0.3s ease-out;
+}
+
 /* Retro glow effect */
 .retro-glow {
   text-shadow: 0 0 10px currentColor;

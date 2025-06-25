@@ -6,6 +6,7 @@ import { CommissionCalculator } from "@/components/commission-calculator";
 import { ClaimTracking } from "@/components/claim-tracking";
 import { FaqSection } from "@/components/faq-section";
 import { Footer } from "@/components/footer";
+import { ClippyAssistant } from "@/components/clippy-assistant";
 
 export default function Home() {
   return (
@@ -18,6 +19,7 @@ export default function Home() {
       <ClaimTracking />
       <FaqSection />
       <Footer />
+      <ClippyAssistant />
     </div>
   );
 }

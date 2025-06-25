@@ -112,7 +112,14 @@ export function ClaimForm() {
   };
 
   const nextStep = () => {
-    if (currentStep < 3) setCurrentStep(currentStep + 1);
+    if (currentStep < 3) {
+      setCurrentStep(currentStep + 1);
+      // Trigger Clippy context messages
+      const event = new CustomEvent('clippyTrigger', { 
+        detail: { trigger: `step-${currentStep + 1}`, context: 'claim-form' }
+      });
+      window.dispatchEvent(event);
+    }
   };
 
   const prevStep = () => {
