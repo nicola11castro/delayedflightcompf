@@ -10,88 +10,77 @@ export function Hero() {
   };
 
   return (
-    <section className="bg-gradient-to-br from-background via-muted to-card text-foreground py-20 lg:py-32 retro-grid">
+    <section className="bg-background text-foreground py-12 border-b-2 border-border" style={{borderStyle: 'inset'}}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div className="animate-fade-in">
-            <h1 className="font-bold text-4xl sm:text-5xl lg:text-6xl leading-tight mb-6 retro-glow">
+        <div className="grid lg:grid-cols-2 gap-8 items-center">
+          <div>
+            <h1 className="font-bold text-2xl mb-4">
               Get Your Flight Compensation
               <span className="block text-accent">15% Fee, No Win No Pay</span>
             </h1>
-            <p className="text-xl text-muted-foreground mb-8 leading-relaxed">
+            <p className="text-sm text-foreground mb-6">
               Delayed, cancelled, or denied boarding? Claim up to $700 compensation. 
               We only charge our 15% commission when you win.
             </p>
             
             {/* Commission Highlight */}
-            <div className="retro-card p-6 mb-8">
-              <h3 className="font-semibold text-lg mb-3 text-primary">
-                <Calculator className="inline w-5 h-5 text-accent mr-2" />
+            <div className="win98-panel mb-6">
+              <h3 className="font-bold text-sm mb-2">
+                <Calculator className="inline w-4 h-4 mr-1" />
                 Transparent Commission Structure
               </h3>
-              <div className="grid sm:grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Compensation: </span>
-                  <span className="font-semibold text-primary">$700</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Our Fee (15%): </span>
-                  <span className="font-semibold text-accent">$105</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">You Receive: </span>
-                  <span className="font-semibold text-secondary">$595</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">If No Win: </span>
-                  <span className="font-semibold text-foreground">$0 Fee</span>
+              <div className="win98-inset mb-4">
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>Compensation: <strong>$700</strong></div>
+                  <div>Our Fee (15%): <strong>$105</strong></div>
+                  <div>You Receive: <strong>$595</strong></div>
+                  <div>If No Win: <strong>$0 Fee</strong></div>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex gap-2">
               <Button 
-                className="btn-accent text-lg retro-button"
+                className="btn-accent"
                 onClick={() => scrollToSection('claims')}
               >
-                <FileText className="mr-2 h-5 w-5" />
-                Submit Your Claim
+                <FileText className="mr-1 h-4 w-4" />
+                Submit Claim
               </Button>
               <Button 
                 variant="outline"
-                className="btn-outline text-lg"
+                className="btn-outline"
                 onClick={() => scrollToSection('calculator')}
               >
-                Calculate Commission
+                Calculate
               </Button>
             </div>
           </div>
 
-          <div className="animate-slide-up">
-            <div className="relative mx-auto max-w-md">
-              <div className="retro-card p-8">
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-accent rounded-full flex items-center justify-center mx-auto mb-4 retro-shadow">
-                    <FileText className="w-8 h-8 text-accent-foreground" />
+          <div>
+            <div className="win98-panel">
+              <div className="text-center">
+                <div className="w-12 h-12 bg-accent flex items-center justify-center mx-auto mb-2" style={{border: '2px outset'}}>
+                  <FileText className="w-6 h-6 text-accent-foreground" />
+                </div>
+                <h3 className="font-bold text-sm mb-2">Quick Claim Process</h3>
+                <p className="text-xs mb-3">
+                  Submit your claim in under 5 minutes. Our AI validates eligibility instantly.
+                </p>
+                <div className="space-y-1 text-left text-xs">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-secondary" style={{border: '1px outset'}}></div>
+                    <span>Flight details & documents</span>
                   </div>
-                  <h3 className="font-semibold text-lg mb-2 text-primary">Quick Claim Process</h3>
-                  <p className="text-muted-foreground text-sm mb-4">
-                    Submit your claim in under 5 minutes. Our AI validates eligibility instantly.
-                  </p>
-                  <div className="space-y-2 text-left text-sm">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-secondary rounded-full retro-shadow"></div>
-                      <span className="text-foreground">Flight details & documents</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-secondary rounded-full retro-shadow"></div>
-                      <span className="text-foreground">AI eligibility validation</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-secondary rounded-full retro-shadow"></div>
-                      <span className="text-foreground">Commission only on success</span>
-                    </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-secondary" style={{border: '1px outset'}}></div>
+                    <span>AI eligibility validation</span>
                   </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-secondary" style={{border: '1px outset'}}></div>
+                    <span>Commission only on success</span>
+                  </div>
+                </div>
                 </div>
               </div>
             </div>

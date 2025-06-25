@@ -4,27 +4,35 @@
 @tailwind utilities;
 
 :root {
-  /* Default retro theme - bright neon on dark backgrounds */
-  --background: 270 60% 8%;                /* Very dark purple background */
-  --foreground: 180 100% 85%;              /* Bright cyan text */
-  --muted: 270 50% 15%;                    /* Dark purple for muted areas */
-  --muted-foreground: 280 70% 60%;         /* Purple for muted text */
-  --popover: 270 50% 12%;                  /* Popover background */
-  --popover-foreground: 180 100% 85%;      /* Bright cyan */
-  --card: 270 40% 10%;                     /* Card background */
-  --card-foreground: 180 100% 85%;         /* Card text */
-  --border: 320 100% 60%;                  /* Hot pink borders */
-  --input: 270 50% 12%;                    /* Input background */
-  --primary: 180 100% 50%;                 /* Bright cyan primary */
-  --primary-foreground: 270 60% 8%;        /* Dark text on primary */
-  --secondary: 320 100% 70%;               /* Hot pink secondary */
-  --secondary-foreground: 270 60% 8%;      /* Dark text on secondary */
-  --accent: 30 100% 60%;                   /* Orange accent */
-  --accent-foreground: 270 60% 8%;         /* Dark text on accent */
-  --destructive: 0 100% 60%;               /* Red for destructive actions */
+  /* Windows 98 retro theme */
+  --win98-silver: 192 192 192;             /* Classic silver #C0C0C0 */
+  --win98-dark-gray: 128 128 128;          /* Dark gray #808080 */
+  --win98-light-gray: 223 223 223;         /* Light gray #DFDFDF */
+  --win98-white: 255 255 255;              /* White #FFFFFF */
+  --win98-black: 0 0 0;                    /* Black #000000 */
+  --win98-blue: 0 0 128;                   /* Classic blue #000080 */
+  --win98-teal: 0 128 128;                 /* Teal #008080 */
+  
+  --background: 0 0% 75%;                  /* Win98 silver background */
+  --foreground: 0 0% 0%;                   /* Black text */
+  --muted: 0 0% 87%;                       /* Light gray for muted areas */
+  --muted-foreground: 0 0% 25%;            /* Dark gray for muted text */
+  --popover: 0 0% 75%;                     /* Silver popover */
+  --popover-foreground: 0 0% 0%;           /* Black text */
+  --card: 0 0% 75%;                        /* Silver card background */
+  --card-foreground: 0 0% 0%;              /* Black card text */
+  --border: 0 0% 50%;                      /* Gray borders */
+  --input: 0 0% 100%;                      /* White input background */
+  --primary: 240 100% 25%;                 /* Classic blue primary */
+  --primary-foreground: 0 0% 100%;         /* White text on primary */
+  --secondary: 180 100% 25%;               /* Teal secondary */
+  --secondary-foreground: 0 0% 100%;       /* White text on secondary */
+  --accent: 60 100% 50%;                   /* Yellow accent */
+  --accent-foreground: 0 0% 0%;            /* Black text on accent */
+  --destructive: 0 100% 50%;               /* Red for destructive actions */
   --destructive-foreground: 0 0% 100%;     /* White text on red */
-  --ring: 180 100% 50%;                    /* Cyan focus ring */
-  --radius: 0.5rem;
+  --ring: 240 100% 25%;                    /* Blue focus ring */
+  --radius: 0rem;                          /* No rounded corners */
 }
 
 /* Light mode - if user toggles to light */
@@ -51,60 +59,67 @@
 }
 
 .dark {
-  /* Dark mode - even more intense retro colors */
-  --background: 270 70% 3%;                /* Almost black purple */
-  --foreground: 180 100% 90%;              /* Very bright cyan text */
-  --muted: 270 60% 8%;                     /* Dark purple for muted areas */
-  --muted-foreground: 280 80% 70%;         /* Bright purple for muted text */
-  --popover: 270 60% 5%;                   /* Very dark popover */
-  --popover-foreground: 180 100% 90%;      /* Very bright cyan */
-  --card: 270 60% 5%;                      /* Very dark card background */
-  --card-foreground: 180 100% 90%;         /* Very bright card text */
-  --border: 320 100% 70%;                  /* Brighter hot pink borders */
-  --input: 270 60% 8%;                     /* Dark input background */
-  --primary: 180 100% 60%;                 /* Even brighter cyan primary */
-  --primary-foreground: 270 70% 3%;        /* Very dark text on primary */
-  --secondary: 320 100% 75%;               /* Brighter hot pink secondary */
-  --secondary-foreground: 270 70% 3%;      /* Very dark text on secondary */
-  --accent: 30 100% 65%;                   /* Brighter orange accent */
-  --accent-foreground: 270 70% 3%;         /* Very dark text on accent */
-  --destructive: 0 100% 65%;               /* Brighter red */
+  /* Dark Windows 98 theme */
+  --background: 0 0% 25%;                  /* Dark gray background */
+  --foreground: 0 0% 87%;                  /* Light gray text */
+  --muted: 0 0% 35%;                       /* Medium gray for muted areas */
+  --muted-foreground: 0 0% 75%;            /* Light gray for muted text */
+  --popover: 0 0% 25%;                     /* Dark gray popover */
+  --popover-foreground: 0 0% 87%;          /* Light gray text */
+  --card: 0 0% 25%;                        /* Dark gray card background */
+  --card-foreground: 0 0% 87%;             /* Light gray card text */
+  --border: 0 0% 50%;                      /* Medium gray borders */
+  --input: 0 0% 20%;                       /* Darker input background */
+  --primary: 240 100% 60%;                 /* Brighter blue primary */
+  --primary-foreground: 0 0% 100%;         /* White text on primary */
+  --secondary: 180 100% 40%;               /* Brighter teal secondary */
+  --secondary-foreground: 0 0% 100%;       /* White text on secondary */
+  --accent: 60 100% 60%;                   /* Brighter yellow accent */
+  --accent-foreground: 0 0% 0%;            /* Black text on accent */
+  --destructive: 0 100% 60%;               /* Brighter red */
   --destructive-foreground: 0 0% 100%;     /* White text on red */
-  --ring: 180 100% 60%;                    /* Bright cyan focus ring */
+  --ring: 240 100% 60%;                    /* Bright blue focus ring */
 }
 
-/* Custom retro body styles */
+/* Windows 98 body styles */
 body {
-  font-family: 'VT323', monospace;
+  font-family: 'MS Sans Serif', sans-serif;
   background: hsl(var(--background));
   color: hsl(var(--foreground));
-  transition: background-color 0.3s ease, color 0.3s ease;
-  font-size: 18px;
-  line-height: 1.4;
+  font-size: 11px;
+  line-height: 1.2;
 }
 
-/* Retro button styles */
-.retro-button {
-  background: linear-gradient(145deg, hsl(var(--primary)), hsl(var(--accent)));
-  border: 2px solid hsl(var(--border));
-  box-shadow: 0 0 15px hsl(var(--primary) / 0.4);
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  transition: all 0.3s ease;
-  font-family: 'VT323', monospace;
+/* Windows 98 button styles */
+.win98-button {
+  background: hsl(var(--background));
+  border: 2px outset hsl(var(--border));
+  padding: 2px 6px;
+  font-family: 'MS Sans Serif', sans-serif;
+  font-size: 11px;
+  cursor: pointer;
+  transition: none;
 }
 
-.retro-button:hover {
-  box-shadow: 0 0 25px hsl(var(--primary) / 0.7);
-  transform: translateY(-2px);
+.win98-button:hover {
+  background: hsl(var(--muted));
 }
 
-/* Retro card styles */
-.retro-card {
+.win98-button:active {
+  border: 2px inset hsl(var(--border));
+}
+
+/* Windows 98 card styles */
+.win98-panel {
   background: hsl(var(--card));
-  border: 2px solid hsl(var(--border));
-  box-shadow: 0 0 20px hsl(var(--border) / 0.3);
-  backdrop-filter: blur(10px);
+  border: 2px outset hsl(var(--border));
+  padding: 8px;
+}
+
+.win98-inset {
+  background: hsl(var(--input));
+  border: 2px inset hsl(var(--border));
+  padding: 4px;
 }
 
 /* Retro glow effect */
@@ -128,25 +143,39 @@ body {
 
 @layer components {
   .btn-primary {
-    @apply bg-primary hover:brightness-110 text-primary-foreground font-bold py-3 px-6 rounded-lg transition-all duration-200 inline-flex items-center justify-center retro-button;
+    @apply bg-primary text-primary-foreground font-bold py-2 px-4 inline-flex items-center justify-center;
+    background: hsl(var(--primary));
+    border: 2px outset hsl(var(--border));
+    font-family: 'MS Sans Serif', sans-serif;
+    font-size: 11px;
   }
 
   .btn-secondary {
-    @apply bg-secondary hover:brightness-110 text-secondary-foreground font-bold py-3 px-6 rounded-lg transition-all duration-200 inline-flex items-center justify-center retro-button;
+    @apply bg-secondary text-secondary-foreground font-bold py-2 px-4 inline-flex items-center justify-center;
+    background: hsl(var(--secondary));
+    border: 2px outset hsl(var(--border));
+    font-family: 'MS Sans Serif', sans-serif;
+    font-size: 11px;
   }
 
   .btn-accent {
-    @apply bg-accent hover:brightness-110 text-accent-foreground font-bold py-3 px-6 rounded-lg transition-all duration-200 inline-flex items-center justify-center retro-button;
+    @apply bg-accent text-accent-foreground font-bold py-2 px-4 inline-flex items-center justify-center;
+    background: hsl(var(--accent));
+    border: 2px outset hsl(var(--border));
+    font-family: 'MS Sans Serif', sans-serif;
+    font-size: 11px;
   }
 
   .btn-outline {
-    @apply border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground font-bold py-3 px-6 rounded-lg transition-all duration-200 inline-flex items-center justify-center;
-    box-shadow: 0 0 10px hsl(var(--primary) / 0.3);
+    @apply text-primary hover:bg-primary hover:text-primary-foreground font-bold py-2 px-4 inline-flex items-center justify-center;
+    background: hsl(var(--background));
+    border: 2px outset hsl(var(--border));
+    font-family: 'MS Sans Serif', sans-serif;
+    font-size: 11px;
   }
 
   .commission-highlight {
-    @apply retro-card p-6;
-    background: linear-gradient(to right, hsl(var(--primary) / 0.1), hsl(var(--accent) / 0.1));
+    @apply win98-panel;
   }
 
   .claim-status-submitted {
