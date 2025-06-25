@@ -122,6 +122,24 @@ body {
   padding: 4px;
 }
 
+/* Windows 98 dropdown styles */
+.win98-dropdown {
+  background: hsl(var(--popover)) !important;
+  border: 2px outset hsl(var(--border)) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.win98-dropdown-item {
+  background: hsl(var(--popover)) !important;
+  color: hsl(var(--popover-foreground)) !important;
+}
+
+.win98-dropdown-item:hover {
+  background: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+}
+
 /* Retro glow effect */
 .retro-glow {
   text-shadow: 0 0 10px currentColor;
