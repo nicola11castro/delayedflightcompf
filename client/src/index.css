@@ -16,25 +16,25 @@
   --win98-green: hsl(120, 100%, 25%);   /* #008000 */
   
   /* Shadcn compatibility with Win98 theme */
-  --background: 0 0% 75%;
-  --foreground: 0 0% 0%;
+  --background: 0 0% 95%;
+  --foreground: 0 0% 9%;
   --muted: 0 0% 87%;
-  --muted-foreground: 0 0% 50%;
-  --popover: 0 0% 75%;
-  --popover-foreground: 0 0% 0%;
-  --card: 0 0% 75%;
-  --card-foreground: 0 0% 0%;
-  --border: 0 0% 50%;
+  --muted-foreground: 0 0% 45%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 9%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 9%;
+  --border: 0 0% 89%;
   --input: 0 0% 100%;
   --primary: 180 100% 25%;
-  --primary-foreground: 0 0% 100%;
+  --primary-foreground: 0 0% 98%;
   --secondary: 120 100% 25%;
-  --secondary-foreground: 0 0% 100%;
+  --secondary-foreground: 0 0% 98%;
   --accent: 240 100% 50%;
-  --accent-foreground: 0 0% 100%;
+  --accent-foreground: 0 0% 98%;
   --destructive: 0 100% 50%;
-  --destructive-foreground: 0 0% 100%;
-  --ring: 0 0% 0%;
+  --destructive-foreground: 0 0% 98%;
+  --ring: 0 0% 9%;
   --radius: 0rem;
 }
 
@@ -50,25 +50,25 @@
   --win98-teal: hsl(180, 80%, 40%);
   --win98-green: hsl(120, 80%, 40%);
   
-  --background: 0 0% 15%;
-  --foreground: 0 0% 90%;
-  --muted: 0 0% 20%;
-  --muted-foreground: 0 0% 40%;
-  --popover: 0 0% 25%;
-  --popover-foreground: 0 0% 90%;
-  --card: 0 0% 25%;
-  --card-foreground: 0 0% 90%;
-  --border: 0 0% 40%;
-  --input: 0 0% 15%;
+  --background: 222 84% 5%;
+  --foreground: 210 40% 98%;
+  --muted: 217 33% 17%;
+  --muted-foreground: 215 20% 65%;
+  --popover: 222 84% 5%;
+  --popover-foreground: 210 40% 98%;
+  --card: 222 84% 5%;
+  --card-foreground: 210 40% 98%;
+  --border: 217 33% 17%;
+  --input: 217 33% 17%;
   --primary: 180 80% 40%;
-  --primary-foreground: 0 0% 100%;
+  --primary-foreground: 210 40% 98%;
   --secondary: 120 80% 40%;
-  --secondary-foreground: 0 0% 100%;
+  --secondary-foreground: 210 40% 98%;
   --accent: 240 80% 60%;
-  --accent-foreground: 0 0% 100%;
+  --accent-foreground: 210 40% 98%;
   --destructive: 0 80% 60%;
-  --destructive-foreground: 0 0% 100%;
-  --ring: 0 0% 90%;
+  --destructive-foreground: 210 40% 98%;
+  --ring: 210 40% 98%;
 }
 
 /* Windows 98 Base Styles */
@@ -82,11 +82,6 @@ body {
   background: hsl(var(--background));
   font-family: 'VT323', 'MS Sans Serif', sans-serif;
   font-size: 16px;
-  background-image: 
-    linear-gradient(135deg, 
-      hsl(var(--win98-silver)) 0%, 
-      hsl(var(--win98-light-gray)) 50%, 
-      hsl(var(--win98-silver)) 100%);
 }
 
 /* Windows 98 beveled border effect */
@@ -263,11 +258,11 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-muted-foreground bg-opacity-30 rounded-full;
+  @apply bg-gray-400 rounded-full;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-muted-foreground bg-opacity-50;
+  @apply bg-gray-600;
 }
 
 /* Focus visible improvements */
