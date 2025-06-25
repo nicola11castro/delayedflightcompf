@@ -16,25 +16,25 @@
   --win98-green: hsl(120, 100%, 25%);   /* #008000 */
   
   /* Shadcn compatibility with Win98 theme */
-  --background: 0 0% 95%;
-  --foreground: 0 0% 9%;
-  --muted: 0 0% 87%;
-  --muted-foreground: 0 0% 45%;
+  --background: 0 0% 98%;
+  --foreground: 0 0% 5%;
+  --muted: 0 0% 92%;
+  --muted-foreground: 0 0% 35%;
   --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 9%;
+  --popover-foreground: 0 0% 5%;
   --card: 0 0% 100%;
-  --card-foreground: 0 0% 9%;
-  --border: 0 0% 89%;
+  --card-foreground: 0 0% 5%;
+  --border: 0 0% 85%;
   --input: 0 0% 100%;
-  --primary: 180 100% 25%;
-  --primary-foreground: 0 0% 98%;
-  --secondary: 120 100% 25%;
-  --secondary-foreground: 0 0% 98%;
-  --accent: 240 100% 50%;
-  --accent-foreground: 0 0% 98%;
-  --destructive: 0 100% 50%;
-  --destructive-foreground: 0 0% 98%;
-  --ring: 0 0% 9%;
+  --primary: 180 100% 20%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 120 100% 20%;
+  --secondary-foreground: 0 0% 100%;
+  --accent: 240 100% 40%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 100% 45%;
+  --destructive-foreground: 0 0% 100%;
+  --ring: 0 0% 5%;
   --radius: 0rem;
 }
 
