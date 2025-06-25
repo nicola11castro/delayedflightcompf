@@ -109,103 +109,124 @@ export function ClaimTracking() {
               </div>
             </div>
 
+            {error && (
+              <div className="text-center py-4">
+                <p className="text-destructive text-xs">
+                  Error searching for claims. Please try again.
+                </p>
+              </div>
+            )}
+
+            {isLoading && (
+              <div className="text-center py-4">
+                <p className="text-muted-foreground text-xs">Searching for your claims...</p>
+              </div>
+            )}
+
+            {claims && claims.length === 0 && (
+              <div className="text-center py-4">
+                <p className="text-muted-foreground text-xs">
+                  No claims found for "{searchTerm}". Please check your Claim ID or email address.
+                </p>
+              </div>
+            )}
+          </div>
+
         {claims && claims.length > 0 && (
           <div className="space-y-4">
             {claims.map((claim) => (
               <div key={claim.id} className="win98-panel">
                 <div className="flex items-center justify-between mb-2">
-                        <CardTitle className="text-lg">
-                          Claim #{claim.claimId}
-                        </CardTitle>
-                        <Badge className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(claim.status)}`}>
-                          {getStatusIcon(claim.status)}
-                          <span className="ml-1">{formatStatus(claim.status)}</span>
-                        </Badge>
+                  <h3 className="text-sm font-bold">
+                    Claim #{claim.claimId}
+                  </h3>
+                  <div className="win98-inset px-2 py-1">
+                    <div className="flex items-center">
+                      {getStatusIcon(claim.status)}
+                      <span className="ml-1 text-xs font-bold">{formatStatus(claim.status)}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2 text-xs">
+                  <div className="grid md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <p className="font-bold">Flight:</p>
+                      <p className="text-foreground">
+                        {claim.flightNumber} - {claim.flightDate}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="font-bold">Route:</p>
+                      <p className="text-foreground">
+                        {claim.departureAirport} → {claim.arrivalAirport}
+                      </p>
+                    </div>
+                    {claim.compensationAmount && (
+                      <div>
+                        <p className="font-bold">Estimated Compensation:</p>
+                        <p className="font-bold text-secondary">
+                          ${parseFloat(claim.compensationAmount).toFixed(0)}
+                        </p>
                       </div>
-                    </CardHeader>
+                    )}
+                    {claim.commissionAmount && (
+                      <div>
+                        <p className="font-bold">Commission (15%):</p>
+                        <p className="font-bold text-accent">
+                          ${parseFloat(claim.commissionAmount).toFixed(0)}
+                        </p>
+                      </div>
+                    )}
+                  </div>
 
-                    <CardContent>
-                      <div className="grid md:grid-cols-2 gap-6 mb-6">
-                        <div>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">Flight</p>
-                          <p className="font-semibold text-gray-900 dark:text-white">
-                            {claim.flightNumber} - {claim.flightDate}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">Route</p>
-                          <p className="font-semibold text-gray-900 dark:text-white">
-                            {claim.departureAirport} → {claim.arrivalAirport}
-                          </p>
-                        </div>
-                        {claim.compensationAmount && (
-                          <div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">Estimated Compensation</p>
-                            <p className="font-semibold text-secondary text-lg">
-                              ${parseFloat(claim.compensationAmount).toFixed(0)}
+                  {/* Progress Timeline */}
+                  <div className="win98-inset mt-3">
+                    <h4 className="font-bold mb-2">Claim Progress</h4>
+                    <div className="space-y-2">
+                      {claim.statusHistory?.map((status, index) => (
+                        <div key={index} className="flex items-center space-x-2">
+                          <div className={`w-2 h-2 flex-shrink-0 ${
+                            index === 0 ? 'bg-secondary' : 'bg-muted-foreground'
+                          }`} style={{border: '1px outset'}}></div>
+                          <div className="flex-1">
+                            <p className="font-bold">
+                              {formatStatus(status.status)}
+                            </p>
+                            <p className="text-muted-foreground">
+                              {formatDate(status.timestamp)}
+                              {status.notes && ` - ${status.notes}`}
                             </p>
                           </div>
-                        )}
-                        {claim.commissionAmount && (
-                          <div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">Commission (15%)</p>
-                            <p className="font-semibold text-accent text-lg">
-                              ${parseFloat(claim.commissionAmount).toFixed(0)}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Progress Timeline */}
-                      <div className="border-t pt-6">
-                        <h4 className="font-medium text-gray-900 dark:text-white mb-4">Claim Progress</h4>
-                        <div className="space-y-4">
-                          {claim.statusHistory?.map((status, index) => (
-                            <div key={index} className="flex items-center space-x-4">
-                              <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
-                                index === 0 ? 'bg-secondary' : 'bg-gray-300 dark:bg-gray-600'
-                              }`}></div>
-                              <div className="flex-1">
-                                <p className="font-medium text-gray-900 dark:text-white">
-                                  {formatStatus(status.status)}
-                                </p>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">
-                                  {formatDate(status.timestamp)}
-                                  {status.notes && ` - ${status.notes}`}
-                                </p>
-                              </div>
-                            </div>
-                          ))}
                         </div>
-                      </div>
+                      ))}
+                    </div>
+                  </div>
 
-                      {claim.eligibilityValidation && (
-                        <div className="border-t pt-6 mt-6">
-                          <h4 className="font-medium text-gray-900 dark:text-white mb-2">
-                            Eligibility Assessment
-                          </h4>
-                          <div className={`p-3 rounded-lg ${
-                            claim.eligibilityValidation.isEligible 
-                              ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200'
-                              : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200'
-                          }`}>
-                            <p className="text-sm">
-                              <strong>
-                                {claim.eligibilityValidation.isEligible ? 'Eligible' : 'Not Eligible'}
-                              </strong>
-                              {' '}(Confidence: {Math.round(claim.eligibilityValidation.confidence * 100)}%)
-                            </p>
-                            <p className="text-sm mt-1">{claim.eligibilityValidation.reason}</p>
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
+                  {claim.eligibilityValidation && (
+                    <div className="win98-inset mt-3">
+                      <h4 className="font-bold mb-2 text-xs">
+                        Eligibility Assessment
+                      </h4>
+                      <div className={`p-2 ${
+                        claim.eligibilityValidation.isEligible 
+                          ? 'text-secondary'
+                          : 'text-destructive'
+                      }`}>
+                        <p className="text-xs">
+                          <strong>
+                            {claim.eligibilityValidation.isEligible ? 'Eligible' : 'Not Eligible'}
+                          </strong>
+                          {' '}(Confidence: {Math.round(claim.eligibilityValidation.confidence * 100)}%)
+                        </p>
+                        <p className="text-xs mt-1">{claim.eligibilityValidation.reason}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
