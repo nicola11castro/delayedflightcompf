@@ -59,8 +59,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           departureAirport: claim.departureAirport,
           arrivalAirport: claim.arrivalAirport,
           issueType: claim.issueType,
-          delayDuration: claim.delayDuration,
-          delayReason: claim.delayReason,
+          delayDuration: claim.delayDuration || undefined,
+          delayReason: claim.delayReason || undefined,
         });
 
         // Update claim with eligibility validation

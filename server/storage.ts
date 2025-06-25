@@ -34,12 +34,13 @@ export class DatabaseStorage implements IStorage {
         status: 'submitted',
         timestamp: new Date().toISOString(),
         notes: 'Claim submitted successfully'
-      }]
+      }],
+      documentsUrls: insertClaim.documentsUrls || []
     };
 
     const [claim] = await db
       .insert(claims)
-      .values(claimData)
+      .values([claimData])
       .returning();
     return claim;
   }

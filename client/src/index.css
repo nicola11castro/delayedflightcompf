@@ -1,36 +1,41 @@
+@import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --background: hsl(0, 0%, 100%);
-  --foreground: hsl(20, 14.3%, 4.1%);
-  --muted: hsl(60, 4.8%, 95.9%);
-  --muted-foreground: hsl(25, 5.3%, 44.7%);
-  --popover: hsl(0, 0%, 100%);
-  --popover-foreground: hsl(20, 14.3%, 4.1%);
-  --card: hsl(0, 0%, 100%);
-  --card-foreground: hsl(20, 14.3%, 4.1%);
-  --border: hsl(20, 5.9%, 90%);
-  --input: hsl(20, 5.9%, 90%);
-  --primary: hsl(207, 90%, 54%);
-  --primary-foreground: hsl(211, 100%, 99%);
-  --secondary: hsl(120, 44%, 44%);
-  --secondary-foreground: hsl(60, 9.1%, 97.8%);
-  --accent: hsl(37, 100%, 55%);
-  --accent-foreground: hsl(24, 9.8%, 10%);
-  --destructive: hsl(0, 84.2%, 60.2%);
-  --destructive-foreground: hsl(60, 9.1%, 97.8%);
-  --ring: hsl(20, 14.3%, 4.1%);
-  --radius: 0.5rem;
+  /* Windows 98 color palette */
+  --win98-silver: hsl(0, 0%, 75%);      /* #C0C0C0 */
+  --win98-dark-gray: hsl(0, 0%, 50%);   /* #808080 */
+  --win98-light-gray: hsl(0, 0%, 87%);  /* #DEDEDE */
+  --win98-white: hsl(0, 0%, 100%);      /* #FFFFFF */
+  --win98-black: hsl(0, 0%, 0%);        /* #000000 */
+  --win98-blue: hsl(240, 100%, 50%);    /* #0000FF */
+  --win98-red: hsl(0, 100%, 50%);       /* #FF0000 */
+  --win98-teal: hsl(180, 100%, 25%);    /* #008080 */
+  --win98-green: hsl(120, 100%, 25%);   /* #008000 */
   
-  /* Custom colors for the airline app */
-  --flight-blue: hsl(207, 90%, 54%);
-  --success-green: hsl(120, 44%, 44%);
-  --warning-orange: hsl(37, 100%, 55%);
-  --dark-bg: hsl(240, 10%, 3.9%);
-  --dark-surface: hsl(240, 6%, 10%);
-  --dark-text: hsl(0, 0%, 88%);
+  /* Shadcn compatibility with Win98 theme */
+  --background: var(--win98-silver);
+  --foreground: var(--win98-black);
+  --muted: var(--win98-light-gray);
+  --muted-foreground: var(--win98-dark-gray);
+  --popover: var(--win98-silver);
+  --popover-foreground: var(--win98-black);
+  --card: var(--win98-silver);
+  --card-foreground: var(--win98-black);
+  --border: var(--win98-dark-gray);
+  --input: var(--win98-white);
+  --primary: var(--win98-teal);
+  --primary-foreground: var(--win98-white);
+  --secondary: var(--win98-green);
+  --secondary-foreground: var(--win98-white);
+  --accent: var(--win98-blue);
+  --accent-foreground: var(--win98-white);
+  --destructive: var(--win98-red);
+  --destructive-foreground: var(--win98-white);
+  --ring: var(--win98-black);
+  --radius: 0rem;
 }
 
 .dark {
