@@ -153,12 +153,15 @@ body {
   }
 }
 
-@keyframes airplane-hover {
+@keyframes clippy-wiggle {
   0%, 100% {
     transform: translateY(0) rotate(0deg);
   }
   25% {
-    transform: translateY(-3px) rotate(2deg);
+    transform: translateY(-2px) rotate(1deg);
+  }
+  50% {
+    transform: translateY(0) rotate(0deg);
   }
   75% {
     transform: translateY(-1px) rotate(-1deg);
@@ -166,11 +169,11 @@ body {
 }
 
 .clippy-character {
-  animation: airplane-hover 3s ease-in-out infinite;
+  animation: clippy-wiggle 2.5s ease-in-out infinite;
 }
 
 .clippy-character:hover {
-  animation: airplane-hover 0.8s ease-in-out infinite;
+  animation: clippy-wiggle 0.6s ease-in-out infinite;
 }
 
 /* Speech bubble animation */

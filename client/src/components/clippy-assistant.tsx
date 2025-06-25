@@ -14,7 +14,7 @@ interface ClippyMessage {
 const clippyMessages: ClippyMessage[] = [
   {
     id: "welcome",
-    text: "✈️ Hi there! I'm your friendly flight compensation assistant. I've helped thousands of passengers get compensation for delays. Ready to take off?",
+    text: "Hi! I'm Clippy, your claim assistant. I can help you navigate the compensation process. Click me for tips!",
     context: "general",
   },
   {
@@ -57,7 +57,7 @@ const clippyMessages: ClippyMessage[] = [
   },
   {
     id: "easter-egg",
-    text: "✈️ You found the hidden assistant! I'm a cute little airplane here to guide you through compensation claims. Ready for takeoff? 🛫",
+    text: "You found me! I'm the classic Windows 98 Clippy, here to help with your flight compensation claims. Remember the old days?",
     context: "general"
   },
   {
@@ -265,27 +265,31 @@ export function ClippyAssistant() {
         <div 
           onClick={toggleClippy}
           className="w-16 h-16 win98-panel cursor-pointer hover:brightness-110 transition-all duration-200 flex items-center justify-center clippy-character"
-          title="Click for flight compensation help!"
+          title="Click for help!"
         >
-          {/* Cute Airplane Character */}
+          {/* Pixel Clippy Character */}
           <div className="relative">
-            {/* Main fuselage */}
-            <div className="w-10 h-4 bg-accent border-2 border-black rounded-full flex items-center justify-center relative">
-              {/* Cockpit windows */}
-              <div className="w-2 h-1 bg-black rounded-full mr-2"></div>
-              <div className="w-1 h-1 bg-black rounded-full"></div>
+            {/* Body (paperclip shape) */}
+            <div className="w-8 h-10 relative">
+              {/* Main body curve */}
+              <div className="absolute top-0 left-2 w-4 h-8 border-l-2 border-t-2 border-r-2 border-black bg-accent"></div>
+              
+              {/* Inner curve */}
+              <div className="absolute top-2 left-3 w-2 h-4 border-l-2 border-b-2 border-black bg-background"></div>
+              
+              {/* Bottom curve */}
+              <div className="absolute bottom-0 left-1 w-6 h-3 border-2 border-black bg-accent rounded-b-sm"></div>
+              
+              {/* Top hook */}
+              <div className="absolute top-0 left-1 w-2 h-2 border-2 border-black bg-accent"></div>
+              
+              {/* Eyes */}
+              <div className="absolute top-1 left-4 w-1 h-1 bg-black"></div>
+              <div className="absolute top-1 left-5 w-1 h-1 bg-black"></div>
+              
+              {/* Smile */}
+              <div className="absolute top-3 left-4 w-2 h-0 border-b border-black rounded-full"></div>
             </div>
-            
-            {/* Wings */}
-            <div className="absolute top-1 -left-2 w-6 h-2 bg-accent border border-black transform -rotate-12"></div>
-            <div className="absolute top-1 -right-2 w-6 h-2 bg-accent border border-black transform rotate-12"></div>
-            
-            {/* Tail */}
-            <div className="absolute -bottom-1 right-0 w-3 h-3 bg-accent border border-black transform rotate-45"></div>
-            
-            {/* Propeller */}
-            <div className="absolute top-1.5 -left-4 w-1 h-3 bg-black transform rotate-45 animate-spin"></div>
-            <div className="absolute top-1.5 -left-4 w-1 h-3 bg-black transform -rotate-45 animate-spin"></div>
           </div>
         </div>
       </div>
@@ -305,8 +309,8 @@ export function ClippyAssistant() {
               <h4 className="text-xs font-bold flex items-center">
                 {currentMessage.icon === 'warning' && <AlertTriangle className="w-3 h-3 mr-1 text-destructive" />}
                 {currentMessage.icon === 'success' && <CheckCircle className="w-3 h-3 mr-1 text-secondary" />}
-                {!currentMessage.icon && <span className="mr-1">✈️</span>}
-                Flight Assistant
+                {!currentMessage.icon && <MessageCircle className="w-3 h-3 mr-1" />}
+                Clippy Assistant
               </h4>
               <Button
                 onClick={closeClippy}
