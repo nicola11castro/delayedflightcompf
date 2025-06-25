@@ -153,27 +153,27 @@ body {
   }
 }
 
-@keyframes clippy-wiggle {
+@keyframes cone-wobble {
   0%, 100% {
     transform: translateY(0) rotate(0deg);
   }
   25% {
-    transform: translateY(-2px) rotate(1deg);
+    transform: translateY(-1px) rotate(2deg);
   }
   50% {
     transform: translateY(0) rotate(0deg);
   }
   75% {
-    transform: translateY(-1px) rotate(-1deg);
+    transform: translateY(-1px) rotate(-2deg);
   }
 }
 
 .clippy-character {
-  animation: clippy-wiggle 2.5s ease-in-out infinite;
+  animation: cone-wobble 3s ease-in-out infinite;
 }
 
 .clippy-character:hover {
-  animation: clippy-wiggle 0.6s ease-in-out infinite;
+  animation: cone-wobble 0.8s ease-in-out infinite;
 }
 
 /* Speech bubble animation */

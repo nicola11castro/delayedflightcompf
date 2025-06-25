@@ -14,7 +14,7 @@ interface ClippyMessage {
 const clippyMessages: ClippyMessage[] = [
   {
     id: "welcome",
-    text: "Hi! I'm Clippy, your claim assistant. I can help you navigate the compensation process. Click me for tips!",
+    text: "Salut! I'm Côney, your Montreal construction cone assistant. I help navigate flight compensation like I navigate Montreal traffic - with style!",
     context: "general",
   },
   {
@@ -57,7 +57,7 @@ const clippyMessages: ClippyMessage[] = [
   },
   {
     id: "easter-egg",
-    text: "You found me! I'm the classic Windows 98 Clippy, here to help with your flight compensation claims. Remember the old days?",
+    text: "Eh! You found me! I'm Côney the cone - Montreal's favorite traffic director, now helping with flight delays. Construction season never ends!",
     context: "general"
   },
   {
@@ -265,30 +265,36 @@ export function ClippyAssistant() {
         <div 
           onClick={toggleClippy}
           className="w-16 h-16 win98-panel cursor-pointer hover:brightness-110 transition-all duration-200 flex items-center justify-center clippy-character"
-          title="Click for help!"
+          title="Click for help, eh!"
         >
-          {/* Pixel Clippy Character */}
+          {/* Orange Construction Cone Character */}
           <div className="relative">
-            {/* Body (paperclip shape) */}
             <div className="w-8 h-10 relative">
-              {/* Main body curve */}
-              <div className="absolute top-0 left-2 w-4 h-8 border-l-2 border-t-2 border-r-2 border-black bg-accent"></div>
+              {/* Main cone body - orange */}
+              <div 
+                className="absolute bottom-0 left-1 border-l-[12px] border-r-[12px] border-b-[32px] border-l-transparent border-r-transparent border-b-orange-500"
+                style={{ borderBottomColor: '#f97316' }}
+              ></div>
               
-              {/* Inner curve */}
-              <div className="absolute top-2 left-3 w-2 h-4 border-l-2 border-b-2 border-black bg-background"></div>
+              {/* Base of cone */}
+              <div 
+                className="absolute bottom-0 left-0 w-8 h-2 bg-gray-600 border border-black"
+              ></div>
               
-              {/* Bottom curve */}
-              <div className="absolute bottom-0 left-1 w-6 h-3 border-2 border-black bg-accent rounded-b-sm"></div>
+              {/* White reflective stripes */}
+              <div className="absolute bottom-4 left-2 w-4 h-1 bg-white border-y border-black"></div>
+              <div className="absolute bottom-6 left-2.5 w-3 h-1 bg-white border-y border-black"></div>
               
-              {/* Top hook */}
-              <div className="absolute top-0 left-1 w-2 h-2 border-2 border-black bg-accent"></div>
+              {/* Googly eyes */}
+              <div className="absolute top-2 left-2 w-3 h-3 bg-white border-2 border-black rounded-full flex items-center justify-center">
+                <div className="w-1.5 h-1.5 bg-black rounded-full animate-pulse"></div>
+              </div>
+              <div className="absolute top-2 left-4.5 w-3 h-3 bg-white border-2 border-black rounded-full flex items-center justify-center">
+                <div className="w-1.5 h-1.5 bg-black rounded-full animate-pulse"></div>
+              </div>
               
-              {/* Eyes */}
-              <div className="absolute top-1 left-4 w-1 h-1 bg-black"></div>
-              <div className="absolute top-1 left-5 w-1 h-1 bg-black"></div>
-              
-              {/* Smile */}
-              <div className="absolute top-3 left-4 w-2 h-0 border-b border-black rounded-full"></div>
+              {/* Little smile */}
+              <div className="absolute top-5 left-3 w-2 h-0 border-b-2 border-black rounded-full"></div>
             </div>
           </div>
         </div>
@@ -309,8 +315,8 @@ export function ClippyAssistant() {
               <h4 className="text-xs font-bold flex items-center">
                 {currentMessage.icon === 'warning' && <AlertTriangle className="w-3 h-3 mr-1 text-destructive" />}
                 {currentMessage.icon === 'success' && <CheckCircle className="w-3 h-3 mr-1 text-secondary" />}
-                {!currentMessage.icon && <MessageCircle className="w-3 h-3 mr-1" />}
-                Clippy Assistant
+                {!currentMessage.icon && <span className="mr-1">🚧</span>}
+                Côney Assistant
               </h4>
               <Button
                 onClick={closeClippy}
