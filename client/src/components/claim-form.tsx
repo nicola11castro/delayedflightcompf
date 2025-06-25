@@ -122,10 +122,10 @@ export function ClaimForm() {
   const progress = (currentStep / 3) * 100;
 
   return (
-    <section id="claims" className="py-20 bg-gray-50 dark:bg-dark-bg">
+    <section id="claims" className="py-8 bg-background">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <h2 className="font-inter font-bold text-3xl lg:text-4xl text-gray-900 dark:text-white mb-4">
+        <div className="win98-panel mb-6">
+          <h2 className="text-lg font-bold text-foreground mb-2">
             Submit Your Compensation Claim
           </h2>
           <p className="text-xl text-gray-600 dark:text-gray-400">

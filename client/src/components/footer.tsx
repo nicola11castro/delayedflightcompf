@@ -10,41 +10,43 @@ export function Footer() {
   };
 
   return (
-    <footer className="bg-card border-t-2 border-border text-foreground py-16 retro-shadow">
+    <footer className="bg-background py-8" style={{borderTop: '2px inset', borderColor: 'hsl(var(--border))'}}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid md:grid-cols-4 gap-8">
+        <div className="grid md:grid-cols-4 gap-4">
           {/* Company Info */}
           <div className="md:col-span-2">
-            <div className="flex items-center space-x-2 mb-4">
-              <Plane className="text-primary text-2xl retro-glow" />
-              <span className="font-bold text-xl retro-glow">FlightClaim Pro</span>
-            </div>
-            <p className="text-muted-foreground mb-6 max-w-md">
-              Get the compensation you deserve for flight delays and cancellations. 
-              Transparent 15% commission, no win no fee guarantee.
-            </p>
-            
-            {/* Commission Summary */}
-            <div className="retro-card p-4 mb-6">
-              <h4 className="font-semibold mb-2 text-primary">Our Commission Promise</h4>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li className="flex items-center">
-                  <CheckCircle className="w-4 h-4 text-secondary mr-2 flex-shrink-0" />
-                  Only 15% when you win
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="w-4 h-4 text-secondary mr-2 flex-shrink-0" />
-                  No upfront costs
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="w-4 h-4 text-secondary mr-2 flex-shrink-0" />
-                  Transparent pricing
-                </li>
-                <li className="flex items-center">
-                  <CheckCircle className="w-4 h-4 text-secondary mr-2 flex-shrink-0" />
-                  Direct deduction with POA
-                </li>
-              </ul>
+            <div className="win98-panel mb-4">
+              <div className="flex items-center space-x-2 mb-2">
+                <Plane className="text-primary text-lg" />
+                <span className="font-bold text-sm">FlightClaim Pro</span>
+              </div>
+              <p className="text-muted-foreground mb-4 text-xs">
+                Get the compensation you deserve for flight delays and cancellations. 
+                Transparent 15% commission, no win no fee guarantee.
+              </p>
+              
+              {/* Commission Summary */}
+              <div className="win98-inset mb-4">
+                <h4 className="font-bold mb-2 text-xs">Our Commission Promise</h4>
+                <ul className="text-xs text-muted-foreground space-y-1">
+                  <li className="flex items-center">
+                    <CheckCircle className="w-3 h-3 text-secondary mr-1 flex-shrink-0" />
+                    Only 15% when you win
+                  </li>
+                  <li className="flex items-center">
+                    <CheckCircle className="w-3 h-3 text-secondary mr-1 flex-shrink-0" />
+                    No upfront costs
+                  </li>
+                  <li className="flex items-center">
+                    <CheckCircle className="w-3 h-3 text-secondary mr-1 flex-shrink-0" />
+                    Transparent pricing
+                  </li>
+                  <li className="flex items-center">
+                    <CheckCircle className="w-3 h-3 text-secondary mr-1 flex-shrink-0" />
+                    Direct deduction with POA
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
 

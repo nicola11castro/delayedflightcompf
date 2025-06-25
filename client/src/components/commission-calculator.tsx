@@ -46,31 +46,32 @@ export function CommissionCalculator() {
   };
 
   return (
-    <section id="calculator" className="py-20 bg-white dark:bg-dark-surface">
+    <section id="calculator" className="py-8 bg-muted">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <h2 className="font-inter font-bold text-3xl lg:text-4xl text-gray-900 dark:text-white mb-4">
+        <div className="win98-panel mb-6">
+          <h2 className="text-lg font-bold text-foreground mb-2">
+            <Calculator className="inline-block w-4 h-4 mr-2" />
             Commission Calculator
           </h2>
-          <p className="text-xl text-gray-600 dark:text-gray-400">
+          <p className="text-xs text-muted-foreground">
             See exactly what you'll receive after our 15% commission fee
           </p>
         </div>
 
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-8 lg:p-12">
-          <div className="grid lg:grid-cols-2 gap-8 items-center">
+        <div className="win98-panel">
+          <div className="grid lg:grid-cols-2 gap-6 items-center">
             <div>
-              <h3 className="font-inter font-semibold text-xl text-gray-900 dark:text-white mb-6">
+              <h3 className="text-sm font-bold mb-4">
                 Calculate Your Compensation
               </h3>
               
-              <div className="space-y-4 mb-6">
+              <div className="space-y-3 mb-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-xs font-bold mb-1">
                     Flight Distance
                   </label>
                   <Select value={distance} onValueChange={setDistance}>
-                    <SelectTrigger>
+                    <SelectTrigger className="win98-inset text-xs">
                       <SelectValue placeholder="Select distance" />
                     </SelectTrigger>
                     <SelectContent>

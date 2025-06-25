@@ -73,31 +73,31 @@ export function ClaimTracking() {
   };
 
   return (
-    <section id="track" className="py-20 bg-gray-50 dark:bg-dark-bg">
+    <section id="track" className="py-8 bg-background">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <h2 className="font-inter font-bold text-3xl lg:text-4xl text-gray-900 dark:text-white mb-4">
+        <div className="win98-panel mb-6">
+          <h2 className="text-lg font-bold text-foreground mb-2">
+            <Search className="inline-block w-4 h-4 mr-2" />
             Track Your Claim
           </h2>
-          <p className="text-xl text-gray-600 dark:text-gray-400">
+          <p className="text-xs text-muted-foreground">
             Monitor your claim progress and commission status in real-time
           </p>
         </div>
 
-        <Card className="shadow-xl mb-8">
-          <CardContent className="p-8">
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Enter your Claim ID or Email
-              </label>
-              <div className="flex space-x-3">
-                <Input
-                  type="text"
-                  placeholder="e.g., CLM-2024-001234 or your@email.com"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                  className="flex-1"
+        <div className="win98-panel mb-6">
+          <div className="mb-4">
+            <label className="block text-xs font-bold mb-1">
+              Enter your Claim ID or Email
+            </label>
+            <div className="flex space-x-2">
+              <Input
+                type="text"
+                placeholder="e.g., CLM-2024-001234 or your@email.com"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                className="flex-1 win98-inset text-xs"
                 />
                 <Button 
                   onClick={handleSearch}
@@ -109,35 +109,11 @@ export function ClaimTracking() {
               </div>
             </div>
 
-            {error && (
-              <div className="text-center py-8">
-                <p className="text-red-600 dark:text-red-400">
-                  Error searching for claims. Please try again.
-                </p>
-              </div>
-            )}
-
-            {isLoading && (
-              <div className="text-center py-8">
-                <div className="spinner mx-auto mb-4"></div>
-                <p className="text-gray-600 dark:text-gray-400">Searching for your claims...</p>
-              </div>
-            )}
-
-            {claims && claims.length === 0 && (
-              <div className="text-center py-8">
-                <p className="text-gray-600 dark:text-gray-400">
-                  No claims found for "{searchTerm}". Please check your Claim ID or email address.
-                </p>
-              </div>
-            )}
-
-            {claims && claims.length > 0 && (
-              <div className="space-y-6">
-                {claims.map((claim) => (
-                  <Card key={claim.id} className="border border-gray-200 dark:border-gray-600">
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
+        {claims && claims.length > 0 && (
+          <div className="space-y-4">
+            {claims.map((claim) => (
+              <div key={claim.id} className="win98-panel">
+                <div className="flex items-center justify-between mb-2">
                         <CardTitle className="text-lg">
                           Claim #{claim.claimId}
                         </CardTitle>
