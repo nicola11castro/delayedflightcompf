@@ -22,6 +22,7 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  role: varchar("role").default("user"), // user, junior_admin, senior_admin
   // Registration consents
   termsAccepted: boolean("terms_accepted").default(false),
   privacyAccepted: boolean("privacy_accepted").default(false),

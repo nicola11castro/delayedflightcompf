@@ -47,6 +47,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin setup route (for initial setup only)
+  app.post('/api/setup-admin', async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (email === 'pncastrodorion@gmail.com') {
+        // Create or update the admin user
+        const adminUser = await storage.upsertUser({
+          id: 'admin-' + Date.now(),
+          email: email,
+          firstName: 'Pedro',
+          lastName: 'Castro',
+          role: 'senior_admin',
+        });
+        
+        res.json({ 
+          message: "Senior admin user created successfully",
+          user: adminUser
+        });
+      } else {
+        res.status(403).json({ message: "Unauthorized email for admin setup" });
+      }
+    } catch (error) {
+      console.error("Admin setup error:", error);
+      res.status(500).json({ message: "Admin setup failed" });
+    }
+  });
+
   // Claims endpoints
   app.post("/api/claims", upload.array('documents', 5), async (req, res) => {
     try {
@@ -281,20 +309,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin middleware
-  const isJuniorAdmin = (req: any, res: any, next: any) => {
-    const user = req.user;
-    if (!user || !['junior_admin', 'senior_admin'].includes(user.role)) {
-      return res.status(403).json({ message: "Admin access required" });
+  const isJuniorAdmin = async (req: any, res: any, next: any) => {
+    try {
+      if (!req.user?.claims?.sub) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user || !['junior_admin', 'senior_admin'].includes(user.role || 'user')) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      req.currentUser = user;
+      next();
+    } catch (error) {
+      res.status(500).json({ message: "Authorization check failed" });
     }
-    next();
   };
 
-  const isSeniorAdmin = (req: any, res: any, next: any) => {
-    const user = req.user;
-    if (!user || user.role !== 'senior_admin') {
-      return res.status(403).json({ message: "Senior admin access required" });
+  const isSeniorAdmin = async (req: any, res: any, next: any) => {
+    try {
+      if (!req.user?.claims?.sub) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user || user.role !== 'senior_admin') {
+        return res.status(403).json({ message: "Senior admin access required" });
+      }
+      
+      req.currentUser = user;
+      next();
+    } catch (error) {
+      res.status(500).json({ message: "Authorization check failed" });
     }
-    next();
   };
 
   // Admin dashboard endpoints
@@ -310,8 +358,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/admin/users", isSeniorAdmin, async (req, res) => {
     try {
-      // In a real app, you'd have a getUsers method
-      res.json([]); // Placeholder for user management
+      const users = await storage.getAllUsers();
+      res.json(users);
     } catch (error) {
       console.error("Error fetching users:", error);
       res.status(500).json({ message: "Failed to fetch users" });

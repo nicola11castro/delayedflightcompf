@@ -1,4 +1,14 @@
-import { claims, faqItems, type Claim, type InsertClaim, type FaqItem, type InsertFaqItem } from "@shared/schema";
+import { 
+  claims, 
+  faqItems, 
+  users,
+  type Claim, 
+  type InsertClaim, 
+  type FaqItem, 
+  type InsertFaqItem,
+  type User,
+  type UpsertUser 
+} from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, ilike, or } from "drizzle-orm";
 
@@ -7,6 +17,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserRole(id: string, role: 'user' | 'junior_admin' | 'senior_admin'): Promise<User>;
+  getAllUsers(): Promise<User[]>;
 
   // Claims operations
   createClaim(claim: InsertClaim): Promise<Claim>;
@@ -56,6 +67,10 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return user;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users);
   }
 
   async createClaim(insertClaim: InsertClaim): Promise<Claim> {

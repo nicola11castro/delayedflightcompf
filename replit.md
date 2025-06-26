@@ -133,6 +133,7 @@ Changelog:
 - June 26, 2025. Added Google Sheets export functionality for claims data
 - June 26, 2025. Implemented two-tier admin system (Junior Admin and Senior Admin roles)
 - June 26, 2025. Enhanced admin dashboard with role-based access control
+- June 26, 2025. Configured pncastrodorion@gmail.com as senior admin with setup page at /admin/setup
 ```
 
 ## User Preferences

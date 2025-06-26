@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import Home from "@/pages/home";
 import AdminDashboard from "@/pages/admin-dashboard";
+import AdminSetup from "@/pages/admin-setup";
 import Register from "@/pages/register";
 import NotFound from "@/pages/not-found";
 
