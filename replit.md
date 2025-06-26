@@ -57,6 +57,9 @@ FlightClaim Pro is a full-stack web application for processing flight compensati
 - Hidden Clippy-style assistant Easter egg with context-aware guidance and smart tips
 - Public metrics omitted to avoid misleading users before real customer data is available
 - Admin dashboard retains internal tracking for operational purposes
+- Comprehensive consent management with modal document viewing
+- Registration page with mandatory Terms, Privacy, and Data Retention consents
+- Claim submission with required POA and optional Email Marketing consents
 
 ## Data Flow
 
@@ -120,6 +123,9 @@ Changelog:
 - June 26, 2025. Created claim status tracking system with YUL-prefixed claim IDs
 - June 26, 2025. Removed claims processed and success rate metrics from public pages
 - June 26, 2025. Retained internal metrics in admin dashboard for tracking purposes
+- June 26, 2025. Implemented hybrid consent approach with Terms, Privacy, Data Retention at registration
+- June 26, 2025. Added Power of Attorney and Email Marketing consents in claim submission
+- June 26, 2025. Created consent modal system with full document content from attached PDFs
 ```
 
 ## User Preferences

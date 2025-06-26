@@ -15,11 +15,10 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { generateClaimId } from "@/lib/claim-id";
 import { insertClaimSchema } from "@shared/schema";
+import { ConsentCheckboxes } from "./consent-checkboxes";
 import { z } from "zod";
 
 const claimFormSchema = insertClaimSchema.extend({
-  delayDuration: z.string().min(1, "Delay duration is required"),
-  delayReason: z.string().min(1, "Delay reason is required"),
   commissionAgreement: z.boolean().refine((val) => val === true, {
     message: "You must agree to the commission structure to submit a claim",
   }),

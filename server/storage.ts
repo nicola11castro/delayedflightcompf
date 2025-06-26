@@ -39,7 +39,7 @@ export class DatabaseStorage implements IStorage {
 
     const [claim] = await db
       .insert(claims)
-      .values([claimData])
+      .values(claimData)
       .returning();
     return claim;
   }
