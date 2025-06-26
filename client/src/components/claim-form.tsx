@@ -44,6 +44,7 @@ export function ClaimForm() {
       issueType: "delayed",
       delayDuration: "",
       delayReason: "",
+      mealVouchers: "",
       poaRequested: false,
       poaConsent: false,
       emailMarketingConsentClaim: false,

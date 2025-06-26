@@ -17,6 +17,7 @@ interface ClaimRowData {
   issueType: string;
   delayDuration: string;
   delayReason: string;
+  mealVouchers: string;
   status: string;
   compensationAmount?: number;
   commissionAmount?: number;

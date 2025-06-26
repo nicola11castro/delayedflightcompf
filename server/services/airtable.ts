@@ -51,6 +51,7 @@ export class AirtableService {
       'Issue Type': claim.issueType,
       'Delay Duration': claim.delayDuration || '',
       'Delay Reason': claim.delayReason || '',
+      'Meal Vouchers': claim.mealVouchers || 'None',
       'Status': claim.status,
       'POA Requested': claim.poaRequested,
       'POA Signed': claim.poaSigned,

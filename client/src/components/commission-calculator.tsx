@@ -13,6 +13,7 @@ interface CalculationResult {
   commissionAmount: number;
   finalAmount: number;
   claimId?: string;
+  mealVoucherDeduction?: number;
   explanation?: string;
 }
 
@@ -21,6 +22,7 @@ export function CommissionCalculator() {
   const [distance, setDistance] = useState<string>("");
   const [delayDuration, setDelayDuration] = useState<string>("");
   const [delayReason, setDelayReason] = useState<string>("");
+  const [mealVouchers, setMealVouchers] = useState<string>("");
   const [result, setResult] = useState<CalculationResult | null>(null);
 
   const calculateMutation = useMutation({
@@ -29,6 +31,7 @@ export function CommissionCalculator() {
       distance: string; 
       delayDuration: number;
       delayReason: string;
+      mealVouchers: string;
       claimId: string;
     }) => {
       const response = await apiRequest('POST', '/api/calculate-compensation', data);
@@ -151,6 +154,21 @@ export function CommissionCalculator() {
                       <SelectItem value="security">Security Incidents</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold mb-1">
+                    Meal Vouchers Received
+                  </label>
+                  <Input
+                    value={mealVouchers}
+                    onChange={(e) => setMealVouchers(e.target.value)}
+                    placeholder="e.g., $15 or None"
+                    className="win98-inset text-xs"
+                  />
+                  <div className="text-xs text-muted-foreground mt-1">
+                    If you received meal vouchers, specify amount in CAD. Otherwise enter "None".
+                  </div>
                 </div>
               </div>
 

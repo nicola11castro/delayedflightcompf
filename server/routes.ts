@@ -236,7 +236,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Commission calculator endpoint
   app.post("/api/calculate-compensation", async (req, res) => {
     try {
-      const { email, distance, delayDuration, delayReason, claimId } = req.body;
+      const { email, distance, delayDuration, delayReason, mealVouchers, claimId } = req.body;
       
       let compensationAmount = 0;
       
@@ -249,8 +249,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         compensationAmount = delayDuration >= 9 ? 1000 : (delayDuration >= 6 ? 700 : 400);
       }
 
-      const commissionAmount = Math.round(compensationAmount * 0.15);
-      const finalAmount = compensationAmount - commissionAmount;
+      // Parse meal voucher amount and adjust compensation
+      let mealVoucherAmount = 0;
+      if (mealVouchers && mealVouchers.toLowerCase() !== "none") {
+        const voucherMatch = mealVouchers.match(/\$?(\d+(\.\d{2})?)/);
+        if (voucherMatch) {
+          mealVoucherAmount = parseFloat(voucherMatch[1]);
+        }
+      }
+
+      // Deduct meal vouchers from compensation if provided
+      const adjustedCompensation = Math.max(0, compensationAmount - mealVoucherAmount);
+      const commissionAmount = Math.round(adjustedCompensation * 0.15);
+      const finalAmount = adjustedCompensation - commissionAmount;
 
       // Generate AI explanation
       let explanation = "";
@@ -261,10 +272,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       res.json({
-        compensationAmount,
+        compensationAmount: adjustedCompensation,
         commissionAmount,
         finalAmount,
         claimId,
+        mealVoucherDeduction: mealVoucherAmount,
         explanation,
       });
     } catch (error) {
@@ -396,6 +408,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         issueType: claim.issueType,
         delayDuration: claim.delayDuration || '',
         delayReason: claim.delayReason || '',
+        mealVouchers: claim.mealVouchers || 'None',
         status: claim.status,
         compensationAmount: claim.compensationAmount,
         commissionAmount: claim.commissionAmount,

@@ -144,6 +144,7 @@ Changelog:
 - June 26, 2025. Removed Côney loader from all loading states, keeping only hidden assistant for Easter egg discovery
 - June 26, 2025. Extended loading screen duration to 3 seconds for better user experience
 - June 26, 2025. Implemented passenger name-based document naming for POA, file uploads, invoices, and records
+- June 26, 2025. Added meal vouchers field to claim forms with CAD amount validation and expense calculation adjustment
 ```
 
 ## User Preferences
