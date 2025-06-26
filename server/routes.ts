@@ -49,6 +49,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Claims endpoints
   app.post("/api/claims", upload.array('documents', 5), async (req, res) => {
     try {
+      console.log("Received claim data:", req.body);
       const claimData = insertClaimSchema.parse(req.body);
       
       // Handle file uploads

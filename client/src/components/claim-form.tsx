@@ -41,10 +41,12 @@ export function ClaimForm() {
       flightDate: "",
       departureAirport: "",
       arrivalAirport: "",
-      issueType: "",
+      issueType: "delayed",
       delayDuration: "",
       delayReason: "",
       poaRequested: false,
+      poaConsent: false,
+      emailMarketingConsentClaim: false,
       commissionAgreement: false,
     },
   });
@@ -52,22 +54,46 @@ export function ClaimForm() {
   const submitClaimMutation = useMutation({
     mutationFn: async (data: ClaimFormData) => {
       const claimId = generateClaimId(data.email);
+      
+      // Create the claim data object with all required fields
+      const claimData = {
+        claimId,
+        passengerName: data.passengerName,
+        email: data.email,
+        flightNumber: data.flightNumber,
+        flightDate: data.flightDate,
+        departureAirport: data.departureAirport,
+        arrivalAirport: data.arrivalAirport,
+        issueType: data.issueType,
+        delayDuration: data.delayDuration,
+        delayReason: data.delayReason,
+        poaRequested: data.poaRequested || false,
+        poaConsent: data.poaConsent || false,
+        emailMarketingConsentClaim: data.emailMarketingConsentClaim || false,
+      };
+
       const formData = new FormData();
       
-      // Append form fields including generated claim ID
-      Object.entries(data).forEach(([key, value]) => {
-        if (key !== 'commissionAgreement') {
-          formData.append(key, String(value));
-        }
+      // Append all claim data fields
+      Object.entries(claimData).forEach(([key, value]) => {
+        formData.append(key, String(value));
       });
-      formData.append('claimId', claimId);
 
       // Append files
       uploadedFiles.forEach((file) => {
         formData.append('documents', file);
       });
 
-      return await apiRequest('POST', '/api/claims', formData);
+      const response = await fetch('/api/claims', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit claim');
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       toast({

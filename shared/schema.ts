@@ -90,6 +90,13 @@ export const insertClaimSchema = createInsertSchema(claims).omit({
   poaConsent: z.boolean().refine((val) => val === true, {
     message: "Power of Attorney consent is required to proceed with claim",
   }),
+}).partial({
+  emailMarketingConsentClaim: true,
+  poaRequested: true,
+  compensationAmount: true,
+  commissionAmount: true,
+  notes: true,
+  eligibilityValidation: true,
 });
 
 export const insertFaqSchema = createInsertSchema(faqItems).omit({
