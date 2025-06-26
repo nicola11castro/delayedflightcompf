@@ -55,6 +55,8 @@ FlightClaim Pro is a full-stack web application for processing flight compensati
 - Real-time commission calculator
 - Claim tracking system with status visualization
 - Hidden Clippy-style assistant Easter egg with context-aware guidance and smart tips
+- Public metrics omitted to avoid misleading users before real customer data is available
+- Admin dashboard retains internal tracking for operational purposes
 
 ## Data Flow
 
@@ -116,6 +118,8 @@ Changelog:
 - June 26, 2025. Implemented Claim ID Generator using emails with UUID integration
 - June 26, 2025. Added mandatory delay reason and delay duration fields with APPR validation
 - June 26, 2025. Created claim status tracking system with YUL-prefixed claim IDs
+- June 26, 2025. Removed claims processed and success rate metrics from public pages
+- June 26, 2025. Retained internal metrics in admin dashboard for tracking purposes
 ```
 
 ## User Preferences

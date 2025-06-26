@@ -1,8 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
 interface Stats {
-  totalClaims: number;
-  successRate: number;
   avgCompensation: number;
   commissionRate: number;
 }
