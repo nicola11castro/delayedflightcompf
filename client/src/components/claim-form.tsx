@@ -49,7 +49,7 @@ export function ClaimForm() {
       delayReason: "",
       mealVouchers: "",
       poaRequested: false,
-      poaConsent: false,
+      allClaimConsentsAccepted: false,
       emailMarketingConsentClaim: false,
       commissionAgreement: false,
     },

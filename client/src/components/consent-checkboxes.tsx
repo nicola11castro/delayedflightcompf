@@ -28,10 +28,10 @@ export function ConsentCheckboxes({ form, type, showPreAgreedNotice }: ConsentCh
         <div className="win98-panel p-4">
           <h3 className="font-bold text-sm mb-3">Required Consents</h3>
           
-          {/* Terms of Service */}
+          {/* Single consolidated checkbox for all registration consents */}
           <FormField
             control={form.control}
-            name="termsAccepted"
+            name="allConsentsAccepted"
             render={({ field }) => (
               <FormItem className="flex flex-row items-start space-x-3 space-y-0 mb-3">
                 <FormControl>
@@ -42,86 +42,43 @@ export function ConsentCheckboxes({ form, type, showPreAgreedNotice }: ConsentCh
                 </FormControl>
                 <div className="space-y-1 leading-none">
                   <FormLabel className="text-sm">
-                    I agree to the{" "}
+                    I have read and agreed to all of DelayedFlightComp's Terms of Service and agreements. *
+                  </FormLabel>
+                  <div className="flex flex-wrap gap-4 mt-2">
                     <Button
                       type="button"
                       variant="link"
-                      className="p-0 h-auto text-sm underline"
+                      className="p-0 h-auto text-xs underline"
                       onClick={() => openModal("terms")}
                     >
                       Terms of Service
                       <ExternalLink className="ml-1 h-3 w-3" />
                     </Button>
-                    {" "}*
-                  </FormLabel>
-                </div>
-              </FormItem>
-            )}
-          />
-
-          {/* Privacy Policy */}
-          <FormField
-            control={form.control}
-            name="privacyAccepted"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-start space-x-3 space-y-0 mb-3">
-                <FormControl>
-                  <Checkbox 
-                    checked={field.value || false}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-                <div className="space-y-1 leading-none">
-                  <FormLabel className="text-sm">
-                    I agree to the{" "}
                     <Button
                       type="button"
                       variant="link"
-                      className="p-0 h-auto text-sm underline"
+                      className="p-0 h-auto text-xs underline"
                       onClick={() => openModal("privacy")}
                     >
                       Privacy Policy
                       <ExternalLink className="ml-1 h-3 w-3" />
                     </Button>
-                    {" "}*
-                  </FormLabel>
-                </div>
-              </FormItem>
-            )}
-          />
-
-          {/* Data Retention Consent */}
-          <FormField
-            control={form.control}
-            name="dataRetentionAccepted"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-start space-x-3 space-y-0 mb-3">
-                <FormControl>
-                  <Checkbox 
-                    checked={field.value || false}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-                <div className="space-y-1 leading-none">
-                  <FormLabel className="text-sm">
-                    I acknowledge{" "}
                     <Button
                       type="button"
                       variant="link"
-                      className="p-0 h-auto text-sm underline"
+                      className="p-0 h-auto text-xs underline"
                       onClick={() => openModal("dataRetention")}
                     >
                       Data Retention Policy
                       <ExternalLink className="ml-1 h-3 w-3" />
                     </Button>
-                    {" "}*
-                  </FormLabel>
+                  </div>
                 </div>
               </FormItem>
             )}
           />
 
-          {/* Email Marketing Consent (Optional) */}
+          {/* Optional Email Marketing Consent */}
           <FormField
             control={form.control}
             name="emailMarketingConsent"
@@ -193,10 +150,10 @@ export function ConsentCheckboxes({ form, type, showPreAgreedNotice }: ConsentCh
       <div className="win98-panel p-4">
         <h3 className="font-bold text-sm mb-3">Claim-Specific Consents</h3>
         
-        {/* Power of Attorney Consent (Required) */}
+        {/* Single consolidated checkbox for claim consents */}
         <FormField
           control={form.control}
-          name="poaConsent"
+          name="allClaimConsentsAccepted"
           render={({ field }) => (
             <FormItem className="flex flex-row items-start space-x-3 space-y-0 mb-3">
               <FormControl>
@@ -207,25 +164,26 @@ export function ConsentCheckboxes({ form, type, showPreAgreedNotice }: ConsentCh
               </FormControl>
               <div className="space-y-1 leading-none">
                 <FormLabel className="text-sm">
-                  I grant{" "}
+                  I have read and agreed to all of DelayedFlightComp's Terms of Service and agreements. *
+                </FormLabel>
+                <div className="flex flex-wrap gap-4 mt-2">
                   <Button
                     type="button"
                     variant="link"
-                    className="p-0 h-auto text-sm underline"
+                    className="p-0 h-auto text-xs underline"
                     onClick={() => openModal("poa")}
                   >
-                    Power of Attorney
+                    Power of Attorney Agreement
                     <ExternalLink className="ml-1 h-3 w-3" />
                   </Button>
-                  {" "}to process my claim *
-                </FormLabel>
-                <p className="text-xs text-muted-foreground">Required to proceed with your claim</p>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Required to proceed with your claim processing</p>
               </div>
             </FormItem>
           )}
         />
 
-        {/* Email Marketing Consent for Claims (Optional) */}
+        {/* Optional Email Marketing Consent */}
         <FormField
           control={form.control}
           name="emailMarketingConsentClaim"

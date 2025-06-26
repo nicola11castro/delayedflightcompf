@@ -16,14 +16,8 @@ const registerSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email("Invalid email address"),
-  termsAccepted: z.boolean().refine((val) => val === true, {
-    message: "You must accept the Terms of Service",
-  }),
-  privacyAccepted: z.boolean().refine((val) => val === true, {
-    message: "You must accept the Privacy Policy",
-  }),
-  dataRetentionAccepted: z.boolean().refine((val) => val === true, {
-    message: "You must acknowledge the Data Retention Policy",
+  allConsentsAccepted: z.boolean().refine((val) => val === true, {
+    message: "You must accept all Terms of Service and agreements",
   }),
   emailMarketingConsent: z.boolean().optional().default(false),
 });
@@ -39,9 +33,7 @@ export default function Register() {
       firstName: "",
       lastName: "",
       email: "",
-      termsAccepted: false,
-      privacyAccepted: false,
-      dataRetentionAccepted: false,
+      allConsentsAccepted: false,
       emailMarketingConsent: false,
     },
   });
