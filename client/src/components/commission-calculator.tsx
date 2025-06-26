@@ -2,24 +2,35 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Calculator, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { apiRequest } from "@/lib/queryClient";
+import { generateClaimId } from "@/lib/claim-id";
 
 interface CalculationResult {
   compensationAmount: number;
   commissionAmount: number;
   finalAmount: number;
+  claimId?: string;
   explanation?: string;
 }
 
 export function CommissionCalculator() {
+  const [email, setEmail] = useState<string>("");
   const [distance, setDistance] = useState<string>("");
   const [delayDuration, setDelayDuration] = useState<string>("");
+  const [delayReason, setDelayReason] = useState<string>("");
   const [result, setResult] = useState<CalculationResult | null>(null);
 
   const calculateMutation = useMutation({
-    mutationFn: async (data: { distance: string; delayDuration: number }) => {
+    mutationFn: async (data: { 
+      email: string;
+      distance: string; 
+      delayDuration: number;
+      delayReason: string;
+      claimId: string;
+    }) => {
       const response = await apiRequest('POST', '/api/calculate-compensation', data);
       return response.json();
     },
@@ -29,13 +40,20 @@ export function CommissionCalculator() {
   });
 
   const handleCalculate = () => {
-    if (!distance || !delayDuration) {
-      alert('Please select both distance and delay duration');
+    if (!email || !distance || !delayDuration || !delayReason) {
+      alert('Please fill in all required fields including email, distance, delay duration, and delay reason');
       return;
     }
 
+    const claimId = generateClaimId(email);
     const delayHours = parseInt(delayDuration);
-    calculateMutation.mutate({ distance, delayDuration: delayHours });
+    calculateMutation.mutate({ 
+      email,
+      distance, 
+      delayDuration: delayHours,
+      delayReason,
+      claimId
+    });
   };
 
   const scrollToClaims = () => {
@@ -68,7 +86,21 @@ export function CommissionCalculator() {
               <div className="space-y-3 mb-4">
                 <div>
                   <label className="block text-xs font-bold mb-1">
-                    Flight Distance
+                    Email Address *
+                  </label>
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="your.email@example.com"
+                    className="win98-inset text-xs"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold mb-1">
+                    Flight Distance *
                   </label>
                   <Select value={distance} onValueChange={setDistance}>
                     <SelectTrigger className="win98-inset text-xs">
@@ -83,17 +115,40 @@ export function CommissionCalculator() {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Delay Duration
+                  <label className="block text-xs font-bold mb-1">
+                    Delay Duration *
                   </label>
                   <Select value={delayDuration} onValueChange={setDelayDuration}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select delay" />
+                    <SelectTrigger className="win98-inset text-xs">
+                      <SelectValue placeholder="Select delay duration" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="3">3-6 hours</SelectItem>
-                      <SelectItem value="6">6-9 hours</SelectItem>
-                      <SelectItem value="9">9+ hours or cancelled</SelectItem>
+                      <SelectItem value="3">3–6 hours</SelectItem>
+                      <SelectItem value="6">6–9 hours</SelectItem>
+                      <SelectItem value="9">9+ hours</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold mb-1">
+                    Delay Reason *
+                  </label>
+                  <Select value={delayReason} onValueChange={setDelayReason}>
+                    <SelectTrigger className="win98-inset text-xs">
+                      <SelectValue placeholder="Select delay reason" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="maintenance_non_safety">Maintenance Issues (Non-Safety)</SelectItem>
+                      <SelectItem value="crew_scheduling">Crew Scheduling Problems</SelectItem>
+                      <SelectItem value="overbooking">Overbooking or Boarding Issues</SelectItem>
+                      <SelectItem value="operational_decisions">Operational Decisions</SelectItem>
+                      <SelectItem value="it_failure">IT System Failures</SelectItem>
+                      <SelectItem value="ground_handling">Ground Handling Delays</SelectItem>
+                      <SelectItem value="fueling_deicing">Fueling or De-Icing Delays (Non-Weather)</SelectItem>
+                      <SelectItem value="weather">Weather Conditions</SelectItem>
+                      <SelectItem value="atc">Air Traffic Control (ATC) Restrictions</SelectItem>
+                      <SelectItem value="security">Security Incidents</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -101,7 +156,7 @@ export function CommissionCalculator() {
 
               <Button 
                 onClick={handleCalculate}
-                disabled={calculateMutation.isPending}
+                disabled={calculateMutation.isPending || !email || !distance || !delayDuration || !delayReason}
                 className="btn-primary"
               >
                 <Calculator className="mr-2 h-4 w-4" />
@@ -110,52 +165,57 @@ export function CommissionCalculator() {
             </div>
 
             {result && (
-              <Card className="bg-white dark:bg-gray-800 shadow-lg">
-                <CardContent className="p-6">
-                  <h4 className="font-inter font-semibold text-lg text-gray-900 dark:text-white mb-4">
-                    Your Compensation Breakdown
-                  </h4>
-                  
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-600">
-                      <span className="text-gray-600 dark:text-gray-400">Total Compensation:</span>
-                      <span className="font-semibold text-lg text-gray-900 dark:text-white">
-                        ${result.compensationAmount}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-600">
-                      <span className="text-gray-600 dark:text-gray-400">Our Commission (15%):</span>
-                      <span className="font-semibold text-accent">
-                        ${result.commissionAmount}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center py-2 bg-secondary/10 rounded-lg px-3">
-                      <span className="text-gray-600 dark:text-gray-400 font-medium">You Receive:</span>
-                      <span className="font-bold text-xl text-secondary">
-                        ${result.finalAmount}
-                      </span>
+              <div className="win98-panel">
+                <h4 className="text-sm font-bold mb-4">
+                  Your Compensation Breakdown
+                </h4>
+                
+                {result.claimId && (
+                  <div className="mb-4 p-2 win98-inset">
+                    <div className="text-xs font-bold mb-1">Claim ID Generated:</div>
+                    <div className="text-xs font-mono bg-accent text-accent-foreground p-1">
+                      {result.claimId}
                     </div>
                   </div>
-
-                  {result.explanation && (
-                    <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                      <p className="text-sm text-gray-700 dark:text-gray-300">
-                        {result.explanation}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="mt-6 text-center">
-                    <Button 
-                      onClick={scrollToClaims}
-                      className="btn-accent w-full"
-                    >
-                      Submit Your Claim Now
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
+                )}
+                
+                <div className="space-y-2 mb-4">
+                  <div className="flex justify-between items-center text-xs">
+                    <span>Total Compensation:</span>
+                    <span className="font-bold">
+                      ${result.compensationAmount}
+                    </span>
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="flex justify-between items-center text-xs">
+                    <span>Our Commission (15%):</span>
+                    <span className="font-bold text-accent">
+                      ${result.commissionAmount}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs p-2 win98-inset">
+                    <span className="font-bold">You Receive:</span>
+                    <span className="font-bold text-secondary">
+                      ${result.finalAmount}
+                    </span>
+                  </div>
+                </div>
+
+                {result.explanation && (
+                  <div className="mb-4 p-2 win98-inset">
+                    <p className="text-xs">
+                      {result.explanation}
+                    </p>
+                  </div>
+                )}
+
+                <Button 
+                  onClick={scrollToClaims}
+                  className="btn-accent w-full text-xs"
+                >
+                  Submit Your Claim Now
+                  <ArrowRight className="ml-2 h-3 w-3" />
+                </Button>
+              </div>
             )}
           </div>
         </div>
