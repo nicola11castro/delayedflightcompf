@@ -9,13 +9,7 @@ export function ConeyLoader({ className, size = "md" }: ConeyLoaderProps) {
   const sizeClasses = {
     sm: "w-8 h-8",
     md: "w-12 h-12", 
-    lg: "w-20 h-20"
-  };
-
-  const eyeSize = {
-    sm: "w-1.5 h-1.5",
-    md: "w-2 h-2",
-    lg: "w-3 h-3"
+    lg: "w-16 h-16"
   };
 
   const textSize = {
@@ -27,113 +21,118 @@ export function ConeyLoader({ className, size = "md" }: ConeyLoaderProps) {
   return (
     <div className={cn("inline-flex items-center justify-center", className)}>
       <div className={cn("relative", sizeClasses[size])}>
-        {/* Côney Assistant Body - Orange Construction Cone */}
-        <div 
-          className="absolute inset-0 animate-spin flex items-center justify-center"
-          style={{
-            animationDuration: "2s"
-          }}
-        >
-          <div className="relative flex items-center justify-center">
-            {/* Main cone body using border triangles like the assistant */}
-            <div 
-              className="border-l-transparent border-r-transparent"
-              style={{
-                borderLeftWidth: size === "lg" ? "15px" : size === "md" ? "8px" : "6px",
-                borderRightWidth: size === "lg" ? "15px" : size === "md" ? "8px" : "6px", 
-                borderBottomWidth: size === "lg" ? "40px" : size === "md" ? "24px" : "16px",
-                borderBottomColor: '#f97316'
-              }}
-            />
-            
-            {/* Base of cone */}
-            <div 
-              className="absolute bg-gray-700 rounded-sm"
-              style={{
-                bottom: size === "lg" ? "-2px" : size === "md" ? "-1px" : "-1px",
-                left: "50%",
-                transform: "translateX(-50%)",
-                width: size === "lg" ? "32px" : size === "md" ? "18px" : "14px",
-                height: size === "lg" ? "4px" : size === "md" ? "2px" : "2px"
-              }}
-            />
-            
-            {/* White reflective stripes */}
-            <div 
-              className="absolute bg-white"
-              style={{
-                bottom: size === "lg" ? "26px" : size === "md" ? "16px" : "10px",
-                left: "50%",
-                transform: "translateX(-50%)",
-                width: size === "lg" ? "24px" : size === "md" ? "14px" : "10px",
-                height: size === "lg" ? "3px" : size === "md" ? "2px" : "1px"
-              }}
-            />
-            <div 
-              className="absolute bg-white"
-              style={{
-                bottom: size === "lg" ? "16px" : size === "md" ? "10px" : "6px",
-                left: "50%",
-                transform: "translateX(-50%)",
-                width: size === "lg" ? "20px" : size === "md" ? "12px" : "8px",
-                height: size === "lg" ? "3px" : size === "md" ? "2px" : "1px"
-              }}
-            />
-            <div 
-              className="absolute bg-white"
-              style={{
-                bottom: size === "lg" ? "6px" : size === "md" ? "4px" : "2px",
-                left: "50%",
-                transform: "translateX(-50%)",
-                width: size === "lg" ? "16px" : size === "md" ? "10px" : "6px",
-                height: size === "lg" ? "3px" : size === "md" ? "2px" : "1px"
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Googly eyes matching assistant design */}
+        {/* Côney Assistant Character - Direct copy from clippy assistant */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className={`flex ${size === "lg" ? "gap-1 -mt-1" : size === "md" ? "gap-0.5 -mt-1" : "gap-0.5 -mt-1"}`}>
-            {/* Left googly eye */}
+          <div className="relative">
             <div 
-              className={cn("relative bg-white rounded-full border border-gray-600", eyeSize[size])}
+              className="relative"
               style={{
-                boxShadow: "inset 1px 1px 1px rgba(255,255,255,0.8), inset -1px -1px 1px rgba(0,0,0,0.2)"
+                width: size === "lg" ? "32px" : size === "md" ? "24px" : "16px",
+                height: size === "lg" ? "40px" : size === "md" ? "30px" : "20px"
               }}
             >
+              {/* Main cone body - orange */}
               <div 
-                className="absolute bg-black rounded-full"
+                className="absolute bottom-0 border-l-transparent border-r-transparent"
                 style={{
-                  width: "60%",
-                  height: "60%",
-                  animation: "eyeMovementLeft 1.5s ease-in-out infinite"
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  borderLeftWidth: size === "lg" ? "12px" : size === "md" ? "9px" : "6px",
+                  borderRightWidth: size === "lg" ? "12px" : size === "md" ? "9px" : "6px",
+                  borderBottomWidth: size === "lg" ? "32px" : size === "md" ? "24px" : "16px",
+                  borderBottomColor: '#f97316'
                 }}
               />
-            </div>
-            
-            {/* Right googly eye */}
-            <div 
-              className={cn("relative bg-white rounded-full border border-gray-600", eyeSize[size])}
-              style={{
-                boxShadow: "inset 1px 1px 1px rgba(255,255,255,0.8), inset -1px -1px 1px rgba(0,0,0,0.2)"
-              }}
-            >
+              
+              {/* Base of cone */}
               <div 
-                className="absolute bg-black rounded-full"
+                className="absolute bottom-0 left-1/2 transform -translate-x-1/2 bg-gray-700 rounded-sm"
                 style={{
-                  width: "60%",
-                  height: "60%",
-                  animation: "eyeMovementRight 1.5s ease-in-out infinite"
+                  width: size === "lg" ? "28px" : size === "md" ? "21px" : "14px",
+                  height: size === "lg" ? "4px" : size === "md" ? "3px" : "2px"
                 }}
               />
+              
+              {/* White reflective stripes */}
+              <div 
+                className="absolute left-1/2 transform -translate-x-1/2 bg-white"
+                style={{
+                  bottom: size === "lg" ? "22px" : size === "md" ? "16px" : "11px",
+                  width: size === "lg" ? "20px" : size === "md" ? "15px" : "10px",
+                  height: size === "lg" ? "2px" : size === "md" ? "1.5px" : "1px"
+                }}
+              />
+              <div 
+                className="absolute left-1/2 transform -translate-x-1/2 bg-white"
+                style={{
+                  bottom: size === "lg" ? "14px" : size === "md" ? "10px" : "7px",
+                  width: size === "lg" ? "16px" : size === "md" ? "12px" : "8px",
+                  height: size === "lg" ? "2px" : size === "md" ? "1.5px" : "1px"
+                }}
+              />
+              <div 
+                className="absolute left-1/2 transform -translate-x-1/2 bg-white"
+                style={{
+                  bottom: size === "lg" ? "6px" : size === "md" ? "4px" : "3px",
+                  width: size === "lg" ? "12px" : size === "md" ? "9px" : "6px",
+                  height: size === "lg" ? "2px" : size === "md" ? "1.5px" : "1px"
+                }}
+              />
+              
+              {/* Googly eyes */}
+              <div 
+                className="absolute flex gap-0.5"
+                style={{
+                  top: size === "lg" ? "8px" : size === "md" ? "6px" : "4px",
+                  left: "50%",
+                  transform: "translateX(-50%)"
+                }}
+              >
+                {/* Left eye */}
+                <div 
+                  className="bg-white rounded-full border border-gray-600 relative"
+                  style={{
+                    width: size === "lg" ? "6px" : size === "md" ? "4px" : "3px",
+                    height: size === "lg" ? "6px" : size === "md" ? "4px" : "3px"
+                  }}
+                >
+                  <div 
+                    className="absolute bg-black rounded-full"
+                    style={{
+                      width: "60%",
+                      height: "60%",
+                      top: "20%",
+                      left: "20%"
+                    }}
+                  />
+                </div>
+                
+                {/* Right eye */}
+                <div 
+                  className="bg-white rounded-full border border-gray-600 relative"
+                  style={{
+                    width: size === "lg" ? "6px" : size === "md" ? "4px" : "3px",
+                    height: size === "lg" ? "6px" : size === "md" ? "4px" : "3px"
+                  }}
+                >
+                  <div 
+                    className="absolute bg-black rounded-full"
+                    style={{
+                      width: "60%",
+                      height: "60%",
+                      top: "20%",
+                      left: "20%"
+                    }}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Loading text (optional) */}
         {size !== "lg" && (
-          <div className={`absolute -bottom-6 left-1/2 transform -translate-x-1/2 ${textSize[size]} text-muted-foreground whitespace-nowrap`}>
+          <div className={`absolute -bottom-8 left-1/2 transform -translate-x-1/2 ${textSize[size]} text-muted-foreground whitespace-nowrap`}>
             Côney at work...
           </div>
         )}
