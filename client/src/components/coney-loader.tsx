@@ -13,9 +13,9 @@ export function ConeyLoader({ className, size = "md" }: ConeyLoaderProps) {
   };
 
   const eyeSize = {
-    sm: "w-1 h-1",
-    md: "w-1.5 h-1.5",
-    lg: "w-2.5 h-2.5"
+    sm: "w-1.5 h-1.5",
+    md: "w-2 h-2",
+    lg: "w-3 h-3"
   };
 
   const textSize = {
@@ -27,73 +27,86 @@ export function ConeyLoader({ className, size = "md" }: ConeyLoaderProps) {
   return (
     <div className={cn("inline-flex items-center justify-center", className)}>
       <div className={cn("relative", sizeClasses[size])}>
-        {/* Côney cone body - Montreal construction cone */}
+        {/* Côney Assistant Body - Orange Construction Cone */}
         <div 
-          className="absolute inset-0 animate-spin"
+          className="absolute inset-0 animate-spin flex items-center justify-center"
           style={{
-            background: "linear-gradient(to bottom, #ff6b35 0%, #f7931e 30%, #ff8c42 60%, #f7931e 100%)",
-            clipPath: "polygon(50% 0%, 20% 100%, 80% 100%)",
-            borderRadius: "1px",
-            animationDuration: "2s",
-            border: "1px solid #d4532a",
-            boxShadow: "inset 2px 2px 4px rgba(255,255,255,0.7), inset -2px -2px 4px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.2)"
+            animationDuration: "2s"
           }}
         >
-          {/* Reflective safety stripes */}
-          <div 
-            className="absolute w-full bg-white"
-            style={{ 
-              top: "25%", 
-              height: size === "lg" ? "2px" : size === "md" ? "1.5px" : "1px",
-              boxShadow: "0 1px 2px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.8)"
-            }}
-          />
-          <div 
-            className="absolute w-full bg-white"
-            style={{ 
-              top: "50%", 
-              height: size === "lg" ? "2px" : size === "md" ? "1.5px" : "1px",
-              boxShadow: "0 1px 2px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.8)"
-            }}
-          />
-          <div 
-            className="absolute w-full bg-white"
-            style={{ 
-              top: "75%", 
-              height: size === "lg" ? "2px" : size === "md" ? "1.5px" : "1px",
-              boxShadow: "0 1px 2px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.8)"
-            }}
-          />
+          <div className="relative flex items-center justify-center">
+            {/* Main cone body using border triangles like the assistant */}
+            <div 
+              className="border-l-transparent border-r-transparent"
+              style={{
+                borderLeftWidth: size === "lg" ? "15px" : size === "md" ? "8px" : "6px",
+                borderRightWidth: size === "lg" ? "15px" : size === "md" ? "8px" : "6px", 
+                borderBottomWidth: size === "lg" ? "40px" : size === "md" ? "24px" : "16px",
+                borderBottomColor: '#f97316'
+              }}
+            />
+            
+            {/* Base of cone */}
+            <div 
+              className="absolute bg-gray-700 rounded-sm"
+              style={{
+                bottom: size === "lg" ? "-2px" : size === "md" ? "-1px" : "-1px",
+                left: "50%",
+                transform: "translateX(-50%)",
+                width: size === "lg" ? "32px" : size === "md" ? "18px" : "14px",
+                height: size === "lg" ? "4px" : size === "md" ? "2px" : "2px"
+              }}
+            />
+            
+            {/* White reflective stripes */}
+            <div 
+              className="absolute bg-white"
+              style={{
+                bottom: size === "lg" ? "26px" : size === "md" ? "16px" : "10px",
+                left: "50%",
+                transform: "translateX(-50%)",
+                width: size === "lg" ? "24px" : size === "md" ? "14px" : "10px",
+                height: size === "lg" ? "3px" : size === "md" ? "2px" : "1px"
+              }}
+            />
+            <div 
+              className="absolute bg-white"
+              style={{
+                bottom: size === "lg" ? "16px" : size === "md" ? "10px" : "6px",
+                left: "50%",
+                transform: "translateX(-50%)",
+                width: size === "lg" ? "20px" : size === "md" ? "12px" : "8px",
+                height: size === "lg" ? "3px" : size === "md" ? "2px" : "1px"
+              }}
+            />
+            <div 
+              className="absolute bg-white"
+              style={{
+                bottom: size === "lg" ? "6px" : size === "md" ? "4px" : "2px",
+                left: "50%",
+                transform: "translateX(-50%)",
+                width: size === "lg" ? "16px" : size === "md" ? "10px" : "6px",
+                height: size === "lg" ? "3px" : size === "md" ? "2px" : "1px"
+              }}
+            />
+          </div>
         </div>
 
-        {/* Googly eyes - authentic Montreal charm */}
+        {/* Googly eyes matching assistant design */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className={`flex ${size === "lg" ? "gap-1.5 mt-2" : size === "md" ? "gap-1 mt-1.5" : "gap-0.5 mt-1"}`}>
+          <div className={`flex ${size === "lg" ? "gap-1 -mt-1" : size === "md" ? "gap-0.5 -mt-1" : "gap-0.5 -mt-1"}`}>
             {/* Left googly eye */}
             <div 
-              className={cn("relative bg-white rounded-full border-2", eyeSize[size])}
+              className={cn("relative bg-white rounded-full border border-gray-600", eyeSize[size])}
               style={{
-                borderColor: "#333",
-                boxShadow: "inset 2px 2px 3px rgba(255,255,255,0.8), inset -1px -1px 2px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.3)"
+                boxShadow: "inset 1px 1px 1px rgba(255,255,255,0.8), inset -1px -1px 1px rgba(0,0,0,0.2)"
               }}
             >
               <div 
                 className="absolute bg-black rounded-full"
                 style={{
-                  width: "50%",
-                  height: "50%",
-                  animation: "eyeMovementLeft 1.5s ease-in-out infinite",
-                  boxShadow: "1px 1px 2px rgba(0,0,0,0.5)"
-                }}
-              />
-              {/* Eye shine */}
-              <div 
-                className="absolute bg-white rounded-full"
-                style={{
-                  width: "20%",
-                  height: "20%",
-                  top: "25%",
-                  left: "35%",
+                  width: "60%",
+                  height: "60%",
                   animation: "eyeMovementLeft 1.5s ease-in-out infinite"
                 }}
               />
@@ -101,29 +114,16 @@ export function ConeyLoader({ className, size = "md" }: ConeyLoaderProps) {
             
             {/* Right googly eye */}
             <div 
-              className={cn("relative bg-white rounded-full border-2", eyeSize[size])}
+              className={cn("relative bg-white rounded-full border border-gray-600", eyeSize[size])}
               style={{
-                borderColor: "#333",
-                boxShadow: "inset 2px 2px 3px rgba(255,255,255,0.8), inset -1px -1px 2px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.3)"
+                boxShadow: "inset 1px 1px 1px rgba(255,255,255,0.8), inset -1px -1px 1px rgba(0,0,0,0.2)"
               }}
             >
               <div 
                 className="absolute bg-black rounded-full"
                 style={{
-                  width: "50%",
-                  height: "50%",
-                  animation: "eyeMovementRight 1.5s ease-in-out infinite",
-                  boxShadow: "1px 1px 2px rgba(0,0,0,0.5)"
-                }}
-              />
-              {/* Eye shine */}
-              <div 
-                className="absolute bg-white rounded-full"
-                style={{
-                  width: "20%",
-                  height: "20%",
-                  top: "25%",
-                  left: "35%",
+                  width: "60%",
+                  height: "60%",
                   animation: "eyeMovementRight 1.5s ease-in-out infinite"
                 }}
               />
