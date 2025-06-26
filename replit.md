@@ -32,9 +32,11 @@ FlightClaim Pro is a full-stack web application for processing flight compensati
 
 ### Claim Processing System
 - Multi-step form with file upload capabilities
+- Unique Claim ID generation using email + UUID (format: YUL-{hash}-{uuid})
+- Mandatory delay reason and duration fields for APPR compliance
 - Automated eligibility validation using OpenAI GPT-4o
 - Commission calculation engine with transparent fee structure
-- Status tracking with detailed history logging
+- Status tracking with detailed history logging and claim ID lookup
 - Power of Attorney (POA) integration via DocuSign
 
 ### External Service Integrations
@@ -56,13 +58,15 @@ FlightClaim Pro is a full-stack web application for processing flight compensati
 
 ## Data Flow
 
-1. **Claim Submission**: User fills multi-step form with flight details and uploads supporting documents
-2. **Validation**: OpenAI API validates claim eligibility and estimates compensation
-3. **Storage**: Claim data stored in PostgreSQL with status history tracking
-4. **External Sync**: Claim details optionally synced to Airtable for management
-5. **POA Process**: If required, DocuSign handles electronic signature workflow
-6. **Notifications**: Email confirmations and updates sent via Nodemailer
-7. **Tracking**: Users can track claim status through dedicated interface
+1. **Claim Calculation**: User enters email, distance, delay duration, and reason to generate unique Claim ID
+2. **Claim Submission**: User fills multi-step form with flight details and uploads supporting documents
+3. **ID Generation**: Unique Claim ID created using format YUL-{base64(email+timestamp)}-{uuid}
+4. **Validation**: OpenAI API validates claim eligibility and estimates compensation
+5. **Storage**: Claim data stored in PostgreSQL with unique Claim ID and status history tracking
+6. **External Sync**: Claim details optionally synced to Airtable for management
+7. **POA Process**: If required, DocuSign handles electronic signature workflow
+8. **Notifications**: Email confirmations and updates sent via Nodemailer
+9. **Tracking**: Users can track claim status using Claim ID through dedicated lookup interface
 
 ## External Dependencies
 
@@ -109,6 +113,9 @@ Changelog:
 - June 25, 2025. Initial setup
 - June 25, 2025. Added Windows 98 retro styling throughout entire application
 - June 25, 2025. Implemented hidden Clippy-style assistant Easter egg with smart guidance features
+- June 26, 2025. Implemented Claim ID Generator using emails with UUID integration
+- June 26, 2025. Added mandatory delay reason and delay duration fields with APPR validation
+- June 26, 2025. Created claim status tracking system with YUL-prefixed claim IDs
 ```
 
 ## User Preferences

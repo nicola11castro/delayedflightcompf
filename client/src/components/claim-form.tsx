@@ -527,7 +527,7 @@ export function ClaimForm() {
                           <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                             <FormControl>
                               <Checkbox 
-                                checked={field.value}
+                                checked={field.value || false}
                                 onCheckedChange={field.onChange}
                               />
                             </FormControl>
@@ -538,6 +538,31 @@ export function ClaimForm() {
                             </div>
                           </FormItem>
                         )}
+                      />
+                    </div>
+
+                    {/* Commission Agreement */}
+                    <FormField
+                      control={form.control}
+                      name="commissionAgreement"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-lg border border-primary/20 p-4">
+                          <FormControl>
+                            <Checkbox 
+                              checked={field.value || false}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel className="text-sm font-medium text-gray-900 dark:text-white">
+                              I agree to the 15% commission fee structure *
+                            </FormLabel>
+                            <p className="text-xs text-gray-600 dark:text-gray-400">
+                              This fee covers our service and is deducted from your compensation before transfer.
+                            </p>
+                          </div>
+                        </FormItem>
+                      )}
                       />
                     </div>
                   </div>
