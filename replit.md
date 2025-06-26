@@ -137,10 +137,11 @@ Changelog:
 - June 26, 2025. Fixed authentication system with development mode login/logout functionality
 - June 26, 2025. Added logout functionality to navigation and hero sections with user name display
 - June 26, 2025. Resolved authentication loading loop issues for better user experience
-- June 26, 2025. Created animated Côney loader component with googly eyes and clock-like rotation
+- June 26, 2025. Created animated Côney loader component with googly eyes and clock-like rotation  
 - June 26, 2025. Replaced all loading spinners with Côney character throughout the application
 - June 26, 2025. Enhanced user experience with Montreal-themed construction cone mascot animations
 - June 26, 2025. Added main page loading screen featuring large Côney with app branding (2.5 second duration)
+- June 26, 2025. Removed Côney loader from all loading states, keeping only hidden assistant for Easter egg discovery
 ```
 
 ## User Preferences

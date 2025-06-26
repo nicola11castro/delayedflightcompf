@@ -4,7 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
-import { ConeyLoader } from "@/components/coney-loader";
+
 import { useState, useEffect } from "react";
 import Home from "@/pages/home";
 import AdminDashboard from "@/pages/admin-dashboard";
@@ -28,9 +28,11 @@ function Router() {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center win98-bg">
         <div className="text-center win98-panel p-8 max-w-md">
-          <ConeyLoader size="lg" className="mb-6" />
+          <div className="mb-6 flex justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          </div>
           <h1 className="text-2xl font-bold mb-2 win98-text">FlightClaim Pro</h1>
-          <p className="text-muted-foreground text-sm mb-2">Côney's getting things ready...</p>
+          <p className="text-muted-foreground text-sm mb-2">Loading application...</p>
           <div className="mt-4 text-xs text-muted-foreground win98-text">
             🍁 Montreal's finest flight compensation service 🍁
           </div>
