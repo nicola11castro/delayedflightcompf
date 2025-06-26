@@ -62,7 +62,7 @@ export function Hero() {
             {isAuthenticated ? (
               <div className="flex items-center gap-2 mt-3 text-xs bg-accent/10 border border-accent/20 rounded-lg p-2">
                 <User className="h-3 w-3 text-accent" />
-                <span className="text-accent">Welcome back, {user?.firstName || user?.email}!</span>
+                <span className="text-accent">Welcome back, {user?.firstName || user?.email || 'User'}!</span>
                 <a href="/api/logout" className="ml-auto underline hover:text-primary">
                   Logout
                 </a>

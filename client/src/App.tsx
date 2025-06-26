@@ -14,6 +14,7 @@ import NotFound from "@/pages/not-found";
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
 
+  // Only show loading spinner for actual loading, not auth errors
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">

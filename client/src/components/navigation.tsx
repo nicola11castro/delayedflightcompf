@@ -54,7 +54,7 @@ export function Navigation() {
               <>
                 <span className="text-xs text-muted-foreground px-2">
                   <User className="h-3 w-3 inline mr-1" />
-                  {user?.firstName || user?.email}
+                  {user?.firstName || user?.email || 'User'}
                 </span>
                 <a href="/api/logout">
                   <Button variant="ghost" size="sm" className="win98-button text-xs">
@@ -142,7 +142,7 @@ export function Navigation() {
                 <>
                   <div className="px-3 py-2 text-xs text-muted-foreground">
                     <User className="h-3 w-3 inline mr-1" />
-                    {user?.firstName || user?.email}
+                    {user?.firstName || user?.email || 'User'}
                   </div>
                   <a href="/api/logout">
                     <Button variant="ghost" size="sm" className="win98-button text-xs w-full justify-start">

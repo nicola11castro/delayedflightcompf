@@ -63,7 +63,7 @@ export class GoogleSheetsService {
     return 'placeholder_token';
   }
 
-  async exportClaimsToSheet(claims: ClaimRowData[]): Promise<string> {
+  async exportClaimsToSheet(claims: any[]): Promise<string> {
     try {
       const accessToken = await this.getAccessToken();
 

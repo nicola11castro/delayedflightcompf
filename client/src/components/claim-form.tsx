@@ -53,7 +53,7 @@ export function ClaimForm() {
 
   const submitClaimMutation = useMutation({
     mutationFn: async (data: ClaimFormData) => {
-      const claimId = generateClaimId(data.email);
+      const claimId = generateClaimId(data.email || '');
       
       // Create the claim data object with all required fields
       const claimData = {
