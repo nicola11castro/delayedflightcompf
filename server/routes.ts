@@ -27,6 +27,25 @@ const upload = multer({
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
+  // Registration route
+  app.post('/api/register', async (req, res) => {
+    try {
+      const userData = req.body;
+      
+      // For now, just return success - in a real app you'd create the user
+      res.json({ 
+        message: "Registration successful",
+        user: {
+          id: Date.now().toString(),
+          ...userData
+        }
+      });
+    } catch (error) {
+      console.error("Registration error:", error);
+      res.status(400).json({ message: "Registration failed" });
+    }
+  });
+
   // Claims endpoints
   app.post("/api/claims", upload.array('documents', 5), async (req, res) => {
     try {

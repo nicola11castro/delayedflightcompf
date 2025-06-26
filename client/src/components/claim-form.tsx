@@ -402,71 +402,47 @@ export function ClaimForm() {
                   </div>
                 )}
 
-                {/* Step 3: Agreements */}
+                {/* Step 3: Consents and Agreements */}
                 {currentStep === 3 && (
                   <div className="space-y-6">
-                    {/* Commission Agreement */}
                     <div className="commission-highlight">
                       <h4 className="font-inter font-semibold text-lg text-gray-900 dark:text-white mb-3">
                         <Handshake className="inline w-5 h-5 text-primary mr-2" />
-                        Commission Agreement
+                        Required Consents & Commission Agreement
                       </h4>
-                      <p className="text-gray-700 dark:text-gray-300 mb-4">
-                        By submitting this claim, you agree to our 15% commission structure:
-                      </p>
-                      <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400 mb-4">
-                        <li className="flex items-start">
-                          <Check className="w-4 h-4 text-secondary mt-0.5 mr-2 flex-shrink-0" />
-                          We only charge if your claim is successful
-                        </li>
-                        <li className="flex items-start">
-                          <Check className="w-4 h-4 text-secondary mt-0.5 mr-2 flex-shrink-0" />
-                          15% fee is deducted from compensation before transfer
-                        </li>
-                        <li className="flex items-start">
-                          <Check className="w-4 h-4 text-secondary mt-0.5 mr-2 flex-shrink-0" />
-                          No hidden fees or upfront costs
-                        </li>
-                      </ul>
                       
+                      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                        <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
+                          <strong>Our transparent fee structure:</strong>
+                        </p>
+                        <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                          <li className="flex items-start">
+                            <Check className="w-4 h-4 text-secondary mt-0.5 mr-2 flex-shrink-0" />
+                            15% commission only charged on successful claims
+                          </li>
+                          <li className="flex items-start">
+                            <Check className="w-4 h-4 text-secondary mt-0.5 mr-2 flex-shrink-0" />
+                            No upfront fees or hidden costs
+                          </li>
+                          <li className="flex items-start">
+                            <Check className="w-4 h-4 text-secondary mt-0.5 mr-2 flex-shrink-0" />
+                            Full legal support throughout the process
+                          </li>
+                          <li className="flex items-start">
+                            <Check className="w-4 h-4 text-secondary mt-0.5 mr-2 flex-shrink-0" />
+                            Expert negotiation with airlines
+                          </li>
+                        </ul>
+                      </div>
+
+                      {/* Consent Checkboxes */}
+                      <ConsentCheckboxes form={form} type="claim" showPreAgreedNotice={true} />
+
                       <FormField
                         control={form.control}
                         name="commissionAgreement"
                         render={({ field }) => (
-                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                            <FormControl>
-                              <Checkbox 
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                            <div className="space-y-1 leading-none">
-                              <FormLabel className="text-sm text-gray-700 dark:text-gray-300">
-                                I agree to the 15% commission fee and Terms of Service
-                              </FormLabel>
-                              <FormMessage />
-                            </div>
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    {/* POA Option */}
-                    <div className="bg-accent/10 rounded-lg p-6 border border-accent/20">
-                      <h4 className="font-inter font-semibold text-lg text-gray-900 dark:text-white mb-3">
-                        <PenTool className="inline w-5 h-5 text-accent mr-2" />
-                        Power of Attorney (Recommended)
-                      </h4>
-                      <p className="text-gray-700 dark:text-gray-300 mb-4">
-                        Sign a Power of Attorney to let us collect compensation directly from the airline. 
-                        We'll deduct our 15% fee and transfer the rest to you immediately.
-                      </p>
-                      
-                      <FormField
-                        control={form.control}
-                        name="poaRequested"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-lg border border-primary/20 p-4 mt-4">
                             <FormControl>
                               <Checkbox 
                                 checked={field.value || false}
@@ -474,38 +450,17 @@ export function ClaimForm() {
                               />
                             </FormControl>
                             <div className="space-y-1 leading-none">
-                              <FormLabel className="text-sm text-gray-700 dark:text-gray-300">
-                                Yes, I want to sign a POA for faster processing (via DocuSign)
+                              <FormLabel className="text-sm font-medium text-gray-900 dark:text-white">
+                                I agree to the 15% commission fee structure *
                               </FormLabel>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">
+                                This fee covers our service and is deducted from your compensation before transfer.
+                              </p>
                             </div>
                           </FormItem>
                         )}
                       />
                     </div>
-
-                    {/* Commission Agreement */}
-                    <FormField
-                      control={form.control}
-                      name="commissionAgreement"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-lg border border-primary/20 p-4">
-                          <FormControl>
-                            <Checkbox 
-                              checked={field.value || false}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                          <div className="space-y-1 leading-none">
-                            <FormLabel className="text-sm font-medium text-gray-900 dark:text-white">
-                              I agree to the 15% commission fee structure *
-                            </FormLabel>
-                            <p className="text-xs text-gray-600 dark:text-gray-400">
-                              This fee covers our service and is deducted from your compensation before transfer.
-                            </p>
-                          </div>
-                        </FormItem>
-                      )}
-                    />
                   </div>
                 )}
 
