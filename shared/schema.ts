@@ -55,6 +55,7 @@ export const claims = pgTable("claims", {
   poaDocumentUrl: text("poa_document_url"),
   // Claim-specific consents (stored per claim)
   poaConsent: boolean("poa_consent").notNull().default(false),
+  allClaimConsentsAccepted: boolean("all_claim_consents_accepted").default(false),
   emailMarketingConsentClaim: boolean("email_marketing_consent_claim").default(false),
   eligibilityValidation: jsonb("eligibility_validation").$type<{
     isEligible: boolean;

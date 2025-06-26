@@ -21,6 +21,9 @@ import { ApprValidationModal } from "./appr-validation-modal";
 import { z } from "zod";
 
 const claimFormSchema = insertClaimSchema.extend({
+  allClaimConsentsAccepted: z.boolean().refine((val) => val === true, {
+    message: "You must accept all Terms of Service and agreements to submit a claim",
+  }),
   commissionAgreement: z.boolean().refine((val) => val === true, {
     message: "You must agree to the commission structure to submit a claim",
   }),
@@ -73,7 +76,7 @@ export function ClaimForm() {
         delayReason: data.delayReason,
         mealVouchers: data.mealVouchers || "",
         poaRequested: data.poaRequested || false,
-        poaConsent: data.poaConsent || false,
+        poaConsent: data.allClaimConsentsAccepted || false,
         emailMarketingConsentClaim: data.emailMarketingConsentClaim || false,
       };
 
