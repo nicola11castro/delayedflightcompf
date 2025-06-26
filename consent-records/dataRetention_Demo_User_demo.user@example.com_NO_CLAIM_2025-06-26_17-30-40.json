@@ -1,0 +1,13 @@
+{
+  "consentType": "dataRetention",
+  "userEmail": "demo.user@example.com",
+  "userName": "Demo User",
+  "documentVersion": "1.0",
+  "agreed": true,
+  "ipAddress": "10.82.4.203",
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0",
+  "timestamp": "2025-06-26T17:30:40.129Z",
+  "filename": "dataRetention_Demo_User_demo.user@example.com_NO_CLAIM_2025-06-26_17-30-40.json",
+  "recordedAt": "2025-06-26T17:30:40.129Z",
+  "documentPath": "consent-documents/dataRetention_v1.0.md"
+}
