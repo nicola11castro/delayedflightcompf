@@ -16,10 +16,10 @@ function Router() {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   useEffect(() => {
-    // Show Côney for a moment while the app initializes
+    // Show loading screen while the app initializes
     const timer = setTimeout(() => {
       setIsInitialLoading(false);
-    }, 2500); // 2.5 seconds of Côney
+    }, 3000); // 3 seconds of loading
 
     return () => clearTimeout(timer);
   }, []);

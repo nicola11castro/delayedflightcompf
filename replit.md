@@ -142,6 +142,7 @@ Changelog:
 - June 26, 2025. Enhanced user experience with Montreal-themed construction cone mascot animations
 - June 26, 2025. Added main page loading screen featuring large Côney with app branding (2.5 second duration)
 - June 26, 2025. Removed Côney loader from all loading states, keeping only hidden assistant for Easter egg discovery
+- June 26, 2025. Extended loading screen duration to 3 seconds for better user experience
 ```
 
 ## User Preferences
