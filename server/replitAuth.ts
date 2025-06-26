@@ -166,7 +166,17 @@ export async function setupAuth(app: Express) {
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
 
-  if (!req.isAuthenticated() || !user.expires_at) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  // In development mode, just check if user exists
+  if (isDevelopment) {
+    return next();
+  }
+
+  // Production mode - check token expiry
+  if (!user?.expires_at) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 

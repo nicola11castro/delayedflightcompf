@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { Plane, Moon, Sun, Menu, X, UserPlus, LogIn } from "lucide-react";
+import { Plane, Moon, Sun, Menu, X, UserPlus, LogIn, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useThemeContext } from "@/components/theme-provider";
+import { useAuth } from "@/hooks/useAuth";
 
 export function Navigation() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { theme, toggleTheme } = useThemeContext();
+  const { isAuthenticated, user } = useAuth();
 
   const navItems = [
     { href: "#claims", label: "Submit Claim" },
@@ -48,19 +50,36 @@ export function Navigation() {
               </button>
             ))}
             
-            <Link href="/register">
-              <Button variant="ghost" size="sm" className="win98-button text-xs">
-                <UserPlus className="h-3 w-3 mr-1" />
-                Register
-              </Button>
-            </Link>
-            
-            <a href="/api/login">
-              <Button variant="ghost" size="sm" className="win98-button text-xs">
-                <LogIn className="h-3 w-3 mr-1" />
-                Login
-              </Button>
-            </a>
+            {isAuthenticated ? (
+              <>
+                <span className="text-xs text-muted-foreground px-2">
+                  <User className="h-3 w-3 inline mr-1" />
+                  {user?.firstName || user?.email}
+                </span>
+                <a href="/api/logout">
+                  <Button variant="ghost" size="sm" className="win98-button text-xs">
+                    <LogOut className="h-3 w-3 mr-1" />
+                    Logout
+                  </Button>
+                </a>
+              </>
+            ) : (
+              <>
+                <Link href="/register">
+                  <Button variant="ghost" size="sm" className="win98-button text-xs">
+                    <UserPlus className="h-3 w-3 mr-1" />
+                    Register
+                  </Button>
+                </Link>
+                
+                <a href="/api/login">
+                  <Button variant="ghost" size="sm" className="win98-button text-xs">
+                    <LogIn className="h-3 w-3 mr-1" />
+                    Login
+                  </Button>
+                </a>
+              </>
+            )}
             
             <Button
               variant="ghost"
@@ -119,18 +138,35 @@ export function Navigation() {
                   {item.label}
                 </button>
               ))}
-              <Link href="/register">
-                <Button variant="ghost" size="sm" className="win98-button text-xs w-full justify-start">
-                  <UserPlus className="h-3 w-3 mr-1" />
-                  Register
-                </Button>
-              </Link>
-              <a href="/api/login">
-                <Button variant="ghost" size="sm" className="win98-button text-xs w-full justify-start">
-                  <LogIn className="h-3 w-3 mr-1" />
-                  Login
-                </Button>
-              </a>
+              {isAuthenticated ? (
+                <>
+                  <div className="px-3 py-2 text-xs text-muted-foreground">
+                    <User className="h-3 w-3 inline mr-1" />
+                    {user?.firstName || user?.email}
+                  </div>
+                  <a href="/api/logout">
+                    <Button variant="ghost" size="sm" className="win98-button text-xs w-full justify-start">
+                      <LogOut className="h-3 w-3 mr-1" />
+                      Logout
+                    </Button>
+                  </a>
+                </>
+              ) : (
+                <>
+                  <Link href="/register">
+                    <Button variant="ghost" size="sm" className="win98-button text-xs w-full justify-start">
+                      <UserPlus className="h-3 w-3 mr-1" />
+                      Register
+                    </Button>
+                  </Link>
+                  <a href="/api/login">
+                    <Button variant="ghost" size="sm" className="win98-button text-xs w-full justify-start">
+                      <LogIn className="h-3 w-3 mr-1" />
+                      Login
+                    </Button>
+                  </a>
+                </>
+              )}
             </div>
           </div>
         )}

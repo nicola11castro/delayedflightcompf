@@ -1,7 +1,10 @@
-import { FileText, Calculator } from "lucide-react";
+import { FileText, Calculator, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
 
 export function Hero() {
+  const { isAuthenticated, user } = useAuth();
+  
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
     if (element) {
@@ -56,15 +59,25 @@ export function Hero() {
               </Button>
             </div>
             
-            <div className="flex gap-2 mt-3 text-xs">
-              <a href="/register" className="underline hover:text-primary">
-                New User? Register here
-              </a>
-              <span>•</span>
-              <a href="/api/login" className="underline hover:text-primary">
-                Have an account? Login
-              </a>
-            </div>
+            {isAuthenticated ? (
+              <div className="flex items-center gap-2 mt-3 text-xs bg-accent/10 border border-accent/20 rounded-lg p-2">
+                <User className="h-3 w-3 text-accent" />
+                <span className="text-accent">Welcome back, {user?.firstName || user?.email}!</span>
+                <a href="/api/logout" className="ml-auto underline hover:text-primary">
+                  Logout
+                </a>
+              </div>
+            ) : (
+              <div className="flex gap-2 mt-3 text-xs">
+                <a href="/register" className="underline hover:text-primary">
+                  New User? Register here
+                </a>
+                <span>•</span>
+                <a href="/api/login" className="underline hover:text-primary">
+                  Have an account? Login
+                </a>
+              </div>
+            )}
           </div>
 
           <div>
