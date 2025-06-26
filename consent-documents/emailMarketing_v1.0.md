@@ -2,7 +2,7 @@
 Version: 1.0
 Category: marketing
 Mandatory: false
-Generated: 2025-06-26T17:28:00.173Z
+Generated: 2025-06-26T17:30:04.211Z
 
 ---
 

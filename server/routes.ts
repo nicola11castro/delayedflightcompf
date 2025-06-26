@@ -8,6 +8,7 @@ import { docusignService } from "./services/docusign";
 import { emailService } from "./services/email";
 import { googleSheetsService } from "./services/google-sheets";
 import { consentManager } from "./services/consent-manager";
+import { createHash } from 'crypto';
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import multer from "multer";
 import path from "path";
@@ -169,7 +170,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate claim ID for consent tracking
       const generateClaimId = (email: string): string => {
         const timestamp = Date.now().toString();
-        const hash = require('crypto').createHash('sha256')
+        const hash = createHash('sha256')
           .update(email + timestamp)
           .digest('base64')
           .replace(/[^a-zA-Z0-9]/g, '')

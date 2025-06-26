@@ -49,6 +49,7 @@ function Router() {
     <Switch>
       <Route path="/admin/setup" component={AdminSetup} />
       <Route path="/register" component={Register} />
+      <Route path="/consent-demo" component={() => <ConsentDemo />} />
       <Route path="/" component={Home} />
       <Route path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
