@@ -9,13 +9,19 @@ export function ConeyLoader({ className, size = "md" }: ConeyLoaderProps) {
   const sizeClasses = {
     sm: "w-8 h-8",
     md: "w-12 h-12", 
-    lg: "w-16 h-16"
+    lg: "w-20 h-20"
   };
 
   const eyeSize = {
     sm: "w-1 h-1",
     md: "w-1.5 h-1.5",
-    lg: "w-2 h-2"
+    lg: "w-2.5 h-2.5"
+  };
+
+  const textSize = {
+    sm: "text-xs",
+    md: "text-xs", 
+    lg: "text-sm"
   };
 
   return (
@@ -27,34 +33,38 @@ export function ConeyLoader({ className, size = "md" }: ConeyLoaderProps) {
           style={{
             background: "linear-gradient(135deg, #ff6b35 0%, #f7931e 50%, #ff6b35 100%)",
             clipPath: "polygon(50% 0%, 15% 100%, 85% 100%)",
-            borderRadius: "2px 2px 4px 4px"
+            borderRadius: "2px 2px 4px 4px",
+            animationDuration: "2s"
           }}
         >
           {/* White reflective stripes */}
           <div 
-            className="absolute w-full h-0.5 bg-white opacity-80"
-            style={{ top: "30%" }}
+            className="absolute w-full bg-white opacity-80"
+            style={{ 
+              top: "30%", 
+              height: size === "lg" ? "3px" : size === "md" ? "2px" : "1px"
+            }}
           />
           <div 
-            className="absolute w-full h-0.5 bg-white opacity-80"
-            style={{ top: "60%" }}
+            className="absolute w-full bg-white opacity-80"
+            style={{ 
+              top: "60%", 
+              height: size === "lg" ? "3px" : size === "md" ? "2px" : "1px"
+            }}
           />
         </div>
 
         {/* Googly eyes container */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="flex gap-0.5 mt-1">
+          <div className={`flex mt-1 ${size === "lg" ? "gap-1" : "gap-0.5"}`}>
             {/* Left googly eye */}
             <div className={cn("relative bg-white rounded-full border border-gray-300", eyeSize[size])}>
               <div 
-                className="absolute bg-black rounded-full animate-bounce"
+                className="absolute bg-black rounded-full"
                 style={{
                   width: "60%",
                   height: "60%",
-                  top: "20%",
-                  left: "20%",
-                  animationDuration: "0.8s",
-                  animationDelay: "0s"
+                  animation: "eyeMovementLeft 1.2s ease-in-out infinite"
                 }}
               />
             </div>
@@ -62,14 +72,11 @@ export function ConeyLoader({ className, size = "md" }: ConeyLoaderProps) {
             {/* Right googly eye */}
             <div className={cn("relative bg-white rounded-full border border-gray-300", eyeSize[size])}>
               <div 
-                className="absolute bg-black rounded-full animate-bounce"
+                className="absolute bg-black rounded-full"
                 style={{
                   width: "60%",
                   height: "60%",
-                  top: "20%",
-                  left: "20%",
-                  animationDuration: "0.9s",
-                  animationDelay: "0.1s"
+                  animation: "eyeMovementRight 1.2s ease-in-out infinite"
                 }}
               />
             </div>
@@ -77,9 +84,11 @@ export function ConeyLoader({ className, size = "md" }: ConeyLoaderProps) {
         </div>
 
         {/* Loading text (optional) */}
-        <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs text-muted-foreground whitespace-nowrap">
-          Côney at work...
-        </div>
+        {size !== "lg" && (
+          <div className={`absolute -bottom-6 left-1/2 transform -translate-x-1/2 ${textSize[size]} text-muted-foreground whitespace-nowrap`}>
+            Côney at work...
+          </div>
+        )}
       </div>
     </div>
   );

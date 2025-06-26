@@ -4,6 +4,8 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ConeyLoader } from "@/components/coney-loader";
+import { useState, useEffect } from "react";
 import Home from "@/pages/home";
 import AdminDashboard from "@/pages/admin-dashboard";
 import AdminSetup from "@/pages/admin-setup";
@@ -11,6 +13,32 @@ import Register from "@/pages/register";
 import NotFound from "@/pages/not-found";
 
 function Router() {
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+
+  useEffect(() => {
+    // Show Côney for a moment while the app initializes
+    const timer = setTimeout(() => {
+      setIsInitialLoading(false);
+    }, 2500); // 2.5 seconds of Côney
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isInitialLoading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center">
+        <div className="text-center">
+          <ConeyLoader size="lg" className="mb-6" />
+          <h1 className="text-2xl font-bold mb-2 win98-text">FlightClaim Pro</h1>
+          <p className="text-muted-foreground text-sm">Côney's getting things ready...</p>
+          <div className="mt-4 text-xs text-muted-foreground">
+            Montreal's finest flight compensation service
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Switch>
       <Route path="/admin/setup" component={AdminSetup} />
