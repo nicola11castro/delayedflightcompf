@@ -282,7 +282,7 @@ export function FaqSection() {
             {filteredFaqs.length === 0 && searchQuery && (
               <div className="text-center py-8">
                 <p className="text-gray-600 dark:text-gray-400 mb-4">
-                  No FAQs found for "{searchQuery}". Try asking our AI assistant!
+                  No FAQs found for "{searchQuery}". Try asking our FAQ Assistant!
                 </p>
                 <Button 
                   onClick={handleChatbotQuery}
@@ -297,7 +297,7 @@ export function FaqSection() {
                   ) : (
                     <>
                       <MessageCircle className="mr-2 h-4 w-4" />
-                      Ask AI Assistant
+                      FAQ Assistant
                     </>
                   )}
                 </Button>
@@ -313,7 +313,7 @@ export function FaqSection() {
             Still have questions about our commission?
           </h3>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            Our AI assistant can answer specific questions about fees, processing times, and commission calculations.
+            Our FAQ Assistant can answer specific questions about fees, processing times, and commission calculations.
           </p>
           <Button 
             onClick={() => {
@@ -324,7 +324,7 @@ export function FaqSection() {
             className="btn-primary"
           >
             <MessageCircle className="mr-2 h-4 w-4" />
-            Ask Our AI Assistant
+            FAQ Assistant
           </Button>
         </div>
       </div>
