@@ -6,6 +6,7 @@ import { validateClaimEligibility, handleChatbotQuery, generateCommissionExplana
 import { airtableService } from "./services/airtable";
 import { docusignService } from "./services/docusign";
 import { emailService } from "./services/email";
+import { googleSheetsService } from "./services/google-sheets";
 import multer from "multer";
 import path from "path";
 
@@ -276,6 +277,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("DocuSign callback error:", error);
       res.status(500).json({ message: "Callback processing failed" });
+    }
+  });
+
+  // Admin middleware
+  const isJuniorAdmin = (req: any, res: any, next: any) => {
+    const user = req.user;
+    if (!user || !['junior_admin', 'senior_admin'].includes(user.role)) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    next();
+  };
+
+  const isSeniorAdmin = (req: any, res: any, next: any) => {
+    const user = req.user;
+    if (!user || user.role !== 'senior_admin') {
+      return res.status(403).json({ message: "Senior admin access required" });
+    }
+    next();
+  };
+
+  // Admin dashboard endpoints
+  app.get("/api/admin/claims", isJuniorAdmin, async (req, res) => {
+    try {
+      const claims = await storage.getAllClaims();
+      res.json(claims);
+    } catch (error) {
+      console.error("Error fetching admin claims:", error);
+      res.status(500).json({ message: "Failed to fetch claims" });
+    }
+  });
+
+  app.get("/api/admin/users", isSeniorAdmin, async (req, res) => {
+    try {
+      // In a real app, you'd have a getUsers method
+      res.json([]); // Placeholder for user management
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.post("/api/admin/export-sheets", isSeniorAdmin, async (req, res) => {
+    try {
+      const claims = await storage.getAllClaims();
+      const claimsData = claims.map(claim => ({
+        claimId: claim.claimId,
+        passengerName: claim.passengerName,
+        email: claim.email,
+        flightNumber: claim.flightNumber,
+        flightDate: claim.flightDate,
+        departureAirport: claim.departureAirport,
+        arrivalAirport: claim.arrivalAirport,
+        issueType: claim.issueType,
+        delayDuration: claim.delayDuration || '',
+        delayReason: claim.delayReason || '',
+        status: claim.status,
+        compensationAmount: claim.compensationAmount,
+        commissionAmount: claim.commissionAmount,
+        poaRequested: claim.poaRequested,
+        poaSigned: claim.poaSigned,
+        poaConsent: claim.poaConsent,
+        emailMarketingConsent: claim.emailMarketingConsentClaim || false,
+        createdAt: claim.createdAt?.toISOString() || '',
+        updatedAt: claim.updatedAt?.toISOString() || '',
+      }));
+
+      const sheetUrl = await googleSheetsService.exportClaimsToSheet(claimsData);
+      res.json({ url: sheetUrl, message: "Claims exported to Google Sheets successfully" });
+    } catch (error) {
+      console.error("Error exporting to Google Sheets:", error);
+      res.status(500).json({ message: "Failed to export to Google Sheets" });
+    }
+  });
+
+  app.put("/api/admin/users/:id/role", isSeniorAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { role } = req.body;
+      
+      if (!['user', 'junior_admin', 'senior_admin'].includes(role)) {
+        return res.status(400).json({ message: "Invalid role" });
+      }
+
+      const user = await storage.updateUserRole(id, role);
+      res.json(user);
+    } catch (error) {
+      console.error("Error updating user role:", error);
+      res.status(500).json({ message: "Failed to update user role" });
     }
   });
 

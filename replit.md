@@ -45,6 +45,7 @@ FlightClaim Pro is a full-stack web application for processing flight compensati
 - **DocuSign**: Electronic signature for POA documents
 - **Email Service**: Nodemailer for automated claim notifications
 - **File Storage**: Local file system (designed for cloud migration)
+- **Google Sheets**: Export claims data for easy sharing and analysis
 - **Smart Assistant**: Context-aware Clippy-style guide with airline and delay reason intelligence
 
 ### User Interface Features
@@ -129,6 +130,9 @@ Changelog:
 - June 26, 2025. Added visible login and registration navigation options in header and hero sections
 - June 26, 2025. Consolidated redundant claim tracking components into single unified interface
 - June 26, 2025. Improved page structure with proper section organization and navigation anchors
+- June 26, 2025. Added Google Sheets export functionality for claims data
+- June 26, 2025. Implemented two-tier admin system (Junior Admin and Senior Admin roles)
+- June 26, 2025. Enhanced admin dashboard with role-based access control
 ```
 
 ## User Preferences

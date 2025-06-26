@@ -3,6 +3,11 @@ import { db } from "./db";
 import { eq, desc, and, ilike, or } from "drizzle-orm";
 
 export interface IStorage {
+  // User operations
+  getUser(id: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
+  updateUserRole(id: string, role: 'user' | 'junior_admin' | 'senior_admin'): Promise<User>;
+
   // Claims operations
   createClaim(claim: InsertClaim): Promise<Claim>;
   getClaimById(id: number): Promise<Claim | undefined>;
@@ -23,6 +28,36 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // User operations
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
+  }
+
+  async updateUserRole(id: string, role: 'user' | 'junior_admin' | 'senior_admin'): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ role, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
   async createClaim(insertClaim: InsertClaim): Promise<Claim> {
     // Generate unique claim ID
     const claimId = `CLM-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
