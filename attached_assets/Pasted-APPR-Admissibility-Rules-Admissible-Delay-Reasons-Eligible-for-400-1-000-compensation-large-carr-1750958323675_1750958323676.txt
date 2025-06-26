@@ -1,0 +1,22 @@
+APPR Admissibility Rules
+Admissible Delay Reasons (Eligible for $400–$1,000 compensation, large carriers like Air Canada, for delays >3 hours):
+Within airline control, not safety-related: e.g., maintenance issues, crew scheduling, overbooking, IT system failures.
+Must be notified ≤14 days before departure.
+Non-Admissible Delay Reasons (No compensation):
+Within airline control, safety-related: e.g., mechanical defects found during pre-flight checks (required for safety).
+Outside airline control: e.g., weather, air traffic control (ATC), security issues, airport operations, labor strikes, manufacturer defects, government orders.
+Notified >14 days before departure.
+Source: Canadian Transportation Agency (CTA), APPR guidelines, 2025.
+Proposal Overview
+Goal: Prevent claim submission in FlightClaimCalculator.tsx or ClaimSubmission.tsx when users select non-admissible delay reasons (e.g., weather, safety-related maintenance) from the mandatory dropdown (<select name="delayReason">). Display a Windows 98-style error message (e.g., “This won’t work as it’s not admissible”) and disable the submit button.
+Purpose: Reduce processing costs (~$2–$5/claim, including $5 upfront fee, AviationStack API, freelancer verification, SendGrid email) for invalid claims and improve user experience by setting clear expectations for frustrated passengers.
+Feasibility
+Technical: Highly feasible. Your existing react-hook-form setup with mandatory delay reason dropdown (<select name="delayReason" required>) can be enhanced with client-side validation to block non-admissible reasons. React’s state management and conditional rendering (e.g., useState, disabled) support real-time error display in a retro 98-style modal (bg-gray-200 border-4 box-shadow-inset).
+Legal:
+CPA Compliance: Blocking non-admissible claims is CPA-compliant if the message is clear and transparent (e.g., “This delay reason is not eligible under APPR”). Must link to APPR Guide (/appr-guide) for details.
+PIPEDA/Law 25: No data privacy issues, as validation occurs pre-submission, and no personal data is stored for blocked claims unless users opt to save drafts.
+APPR: Aligns with regulations by filtering out non-compensable claims (e.g., weather, safety), reducing frivolous submissions to airlines like Air Canada.
+User Impact: Enhances trust by preventing false hope (e.g., users expecting $700 for a weather delay) but may frustrate some users if the message lacks clarity or alternatives (e.g., Montreal Convention for international claims). Conversion rates may drop slightly (~5–10%) if users feel discouraged, but this is offset by focusing on valid claims.
+Implementation
+Form Update:
+Update FlightClaimCalculator.tsx and ClaimSubmission.tsx with a predefined list of delay reasons, categorized as admissible or non-admissible:

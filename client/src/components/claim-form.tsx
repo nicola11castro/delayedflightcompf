@@ -16,6 +16,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { generateClaimId } from "@/lib/claim-id";
 import { insertClaimSchema } from "@shared/schema";
 import { ConsentCheckboxes } from "./consent-checkboxes";
+import { delayReasons, getDelayReasonValidity } from "@/data/airlines";
+import { ApprValidationModal } from "./appr-validation-modal";
 import { z } from "zod";
 
 const claimFormSchema = insertClaimSchema.extend({

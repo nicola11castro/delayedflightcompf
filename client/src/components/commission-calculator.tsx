@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { apiRequest } from "@/lib/queryClient";
 import { generateClaimId } from "@/lib/claim-id";
+import { delayReasons, getDelayReasonValidity } from "@/data/airlines";
+import { ApprValidationModal } from "./appr-validation-modal";
 
 interface CalculationResult {
   compensationAmount: number;
@@ -24,6 +26,7 @@ export function CommissionCalculator() {
   const [delayReason, setDelayReason] = useState<string>("");
   const [mealVouchers, setMealVouchers] = useState<string>("");
   const [result, setResult] = useState<CalculationResult | null>(null);
+  const [showApprModal, setShowApprModal] = useState<boolean>(false);
 
   const calculateMutation = useMutation({
     mutationFn: async (data: { 
@@ -45,6 +48,12 @@ export function CommissionCalculator() {
   const handleCalculate = () => {
     if (!email || !distance || !delayDuration || !delayReason) {
       alert('Please fill in all required fields including email, distance, delay duration, and delay reason');
+      return;
+    }
+
+    // APPR validation - check if delay reason is admissible
+    if (!getDelayReasonValidity(delayReason)) {
+      setShowApprModal(true);
       return;
     }
 
@@ -143,16 +152,15 @@ export function CommissionCalculator() {
                       <SelectValue placeholder="Select delay reason" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="maintenance_non_safety">Maintenance Issues (Non-Safety)</SelectItem>
-                      <SelectItem value="crew_scheduling">Crew Scheduling Problems</SelectItem>
-                      <SelectItem value="overbooking">Overbooking or Boarding Issues</SelectItem>
-                      <SelectItem value="operational_decisions">Operational Decisions</SelectItem>
-                      <SelectItem value="it_failure">IT System Failures</SelectItem>
-                      <SelectItem value="ground_handling">Ground Handling Delays</SelectItem>
-                      <SelectItem value="fueling_deicing">Fueling or De-Icing Delays (Non-Weather)</SelectItem>
-                      <SelectItem value="weather">Weather Conditions</SelectItem>
-                      <SelectItem value="atc">Air Traffic Control (ATC) Restrictions</SelectItem>
-                      <SelectItem value="security">Security Incidents</SelectItem>
+                      {delayReasons.map((reason) => (
+                        <SelectItem 
+                          key={reason.value} 
+                          value={reason.value}
+                          className={!reason.valid ? "text-red-600 dark:text-red-400" : ""}
+                        >
+                          {reason.label} {!reason.valid && "❌"}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -239,6 +247,13 @@ export function CommissionCalculator() {
           </div>
         </div>
       </div>
+
+      {/* APPR Validation Modal */}
+      <ApprValidationModal
+        isOpen={showApprModal}
+        onClose={() => setShowApprModal(false)}
+        delayReason={delayReason}
+      />
     </section>
   );
 }
