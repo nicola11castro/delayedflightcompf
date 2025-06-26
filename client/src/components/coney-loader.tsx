@@ -27,71 +27,104 @@ export function ConeyLoader({ className, size = "md" }: ConeyLoaderProps) {
   return (
     <div className={cn("inline-flex items-center justify-center", className)}>
       <div className={cn("relative", sizeClasses[size])}>
-        {/* Côney cone body - orange construction cone with Montreal vibes */}
+        {/* Côney cone body - Montreal construction cone */}
         <div 
-          className="absolute inset-0 animate-spin win98-border"
+          className="absolute inset-0 animate-spin"
           style={{
-            background: "linear-gradient(135deg, #ff6b35 0%, #f7931e 50%, #ff6b35 100%)",
-            clipPath: "polygon(50% 0%, 15% 100%, 85% 100%)",
-            borderRadius: "2px 2px 4px 4px",
+            background: "linear-gradient(to bottom, #ff6b35 0%, #f7931e 30%, #ff8c42 60%, #f7931e 100%)",
+            clipPath: "polygon(50% 0%, 20% 100%, 80% 100%)",
+            borderRadius: "1px",
             animationDuration: "2s",
-            boxShadow: "inset 1px 1px 0 rgba(255,255,255,0.8), inset -1px -1px 0 rgba(0,0,0,0.3)"
+            border: "1px solid #d4532a",
+            boxShadow: "inset 2px 2px 4px rgba(255,255,255,0.7), inset -2px -2px 4px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.2)"
           }}
         >
-          {/* White reflective stripes with Windows 98 styling */}
+          {/* Reflective safety stripes */}
           <div 
-            className="absolute w-full bg-white opacity-90 win98-border"
+            className="absolute w-full bg-white"
             style={{ 
-              top: "30%", 
-              height: size === "lg" ? "3px" : size === "md" ? "2px" : "1px",
-              boxShadow: "inset 1px 1px 0 rgba(255,255,255,0.9), inset -1px -1px 0 rgba(0,0,0,0.2)"
+              top: "25%", 
+              height: size === "lg" ? "2px" : size === "md" ? "1.5px" : "1px",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.8)"
             }}
           />
           <div 
-            className="absolute w-full bg-white opacity-90 win98-border"
+            className="absolute w-full bg-white"
             style={{ 
-              top: "60%", 
-              height: size === "lg" ? "3px" : size === "md" ? "2px" : "1px",
-              boxShadow: "inset 1px 1px 0 rgba(255,255,255,0.9), inset -1px -1px 0 rgba(0,0,0,0.2)"
+              top: "50%", 
+              height: size === "lg" ? "2px" : size === "md" ? "1.5px" : "1px",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.8)"
+            }}
+          />
+          <div 
+            className="absolute w-full bg-white"
+            style={{ 
+              top: "75%", 
+              height: size === "lg" ? "2px" : size === "md" ? "1.5px" : "1px",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.8)"
             }}
           />
         </div>
 
-        {/* Googly eyes container with Windows 98 styling */}
+        {/* Googly eyes - authentic Montreal charm */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className={`flex mt-1 ${size === "lg" ? "gap-1" : "gap-0.5"}`}>
-            {/* Left googly eye with win98 border */}
+          <div className={`flex ${size === "lg" ? "gap-1.5 mt-2" : size === "md" ? "gap-1 mt-1.5" : "gap-0.5 mt-1"}`}>
+            {/* Left googly eye */}
             <div 
-              className={cn("relative bg-white rounded-full win98-border", eyeSize[size])}
+              className={cn("relative bg-white rounded-full border-2", eyeSize[size])}
               style={{
-                boxShadow: "inset 1px 1px 0 rgba(255,255,255,0.9), inset -1px -1px 0 rgba(0,0,0,0.3), 1px 1px 2px rgba(0,0,0,0.2)"
+                borderColor: "#333",
+                boxShadow: "inset 2px 2px 3px rgba(255,255,255,0.8), inset -1px -1px 2px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.3)"
               }}
             >
               <div 
                 className="absolute bg-black rounded-full"
                 style={{
-                  width: "60%",
-                  height: "60%",
-                  animation: "eyeMovementLeft 1.2s ease-in-out infinite",
-                  boxShadow: "1px 1px 1px rgba(0,0,0,0.3)"
+                  width: "50%",
+                  height: "50%",
+                  animation: "eyeMovementLeft 1.5s ease-in-out infinite",
+                  boxShadow: "1px 1px 2px rgba(0,0,0,0.5)"
+                }}
+              />
+              {/* Eye shine */}
+              <div 
+                className="absolute bg-white rounded-full"
+                style={{
+                  width: "20%",
+                  height: "20%",
+                  top: "25%",
+                  left: "35%",
+                  animation: "eyeMovementLeft 1.5s ease-in-out infinite"
                 }}
               />
             </div>
             
-            {/* Right googly eye with win98 border */}
+            {/* Right googly eye */}
             <div 
-              className={cn("relative bg-white rounded-full win98-border", eyeSize[size])}
+              className={cn("relative bg-white rounded-full border-2", eyeSize[size])}
               style={{
-                boxShadow: "inset 1px 1px 0 rgba(255,255,255,0.9), inset -1px -1px 0 rgba(0,0,0,0.3), 1px 1px 2px rgba(0,0,0,0.2)"
+                borderColor: "#333",
+                boxShadow: "inset 2px 2px 3px rgba(255,255,255,0.8), inset -1px -1px 2px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.3)"
               }}
             >
               <div 
                 className="absolute bg-black rounded-full"
                 style={{
-                  width: "60%",
-                  height: "60%",
-                  animation: "eyeMovementRight 1.2s ease-in-out infinite",
-                  boxShadow: "1px 1px 1px rgba(0,0,0,0.3)"
+                  width: "50%",
+                  height: "50%",
+                  animation: "eyeMovementRight 1.5s ease-in-out infinite",
+                  boxShadow: "1px 1px 2px rgba(0,0,0,0.5)"
+                }}
+              />
+              {/* Eye shine */}
+              <div 
+                className="absolute bg-white rounded-full"
+                style={{
+                  width: "20%",
+                  height: "20%",
+                  top: "25%",
+                  left: "35%",
+                  animation: "eyeMovementRight 1.5s ease-in-out infinite"
                 }}
               />
             </div>

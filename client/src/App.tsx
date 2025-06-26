@@ -66,24 +66,24 @@ function App() {
             <style dangerouslySetInnerHTML={{
               __html: `
                 @keyframes eyeMovementLeft {
-                  0% { top: 20%; left: 20%; }
-                  25% { top: 10%; left: 30%; }
-                  50% { top: 20%; left: 40%; }
-                  75% { top: 30%; left: 30%; }
-                  100% { top: 20%; left: 20%; }
+                  0% { top: 25%; left: 25%; }
+                  25% { top: 15%; left: 35%; }
+                  50% { top: 25%; left: 45%; }
+                  75% { top: 35%; left: 35%; }
+                  100% { top: 25%; left: 25%; }
                 }
                 
                 @keyframes eyeMovementRight {
-                  0% { top: 20%; left: 40%; }
-                  25% { top: 30%; left: 30%; }
-                  50% { top: 20%; left: 20%; }
-                  75% { top: 10%; left: 30%; }
-                  100% { top: 20%; left: 40%; }
+                  0% { top: 25%; left: 45%; }
+                  25% { top: 35%; left: 35%; }
+                  50% { top: 25%; left: 25%; }
+                  75% { top: 15%; left: 35%; }
+                  100% { top: 25%; left: 45%; }
                 }
                 
                 @keyframes coneyBounce {
-                  0%, 100% { transform: translateY(0); }
-                  50% { transform: translateY(-2px); }
+                  0%, 100% { transform: perspective(100px) rotateX(5deg) translateY(0); }
+                  50% { transform: perspective(100px) rotateX(5deg) translateY(-3px); }
                 }
               `
             }} />
