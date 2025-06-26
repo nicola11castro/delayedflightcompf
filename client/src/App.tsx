@@ -11,6 +11,7 @@ import AdminDashboard from "@/pages/admin-dashboard";
 import AdminSetup from "@/pages/admin-setup";
 import Register from "@/pages/register";
 import NotFound from "@/pages/not-found";
+import { ConsentDemo } from "@/components/consent-demo";
 
 function Router() {
   const [isInitialLoading, setIsInitialLoading] = useState(true);

@@ -145,6 +145,10 @@ Changelog:
 - June 26, 2025. Extended loading screen duration to 3 seconds for better user experience
 - June 26, 2025. Implemented passenger name-based document naming for POA, file uploads, invoices, and records
 - June 26, 2025. Added meal vouchers field to claim forms with CAD amount validation and expense calculation adjustment
+- June 26, 2025. Implemented APPR admissibility rules with Windows 98-style validation modal to prevent invalid claim submissions
+- June 26, 2025. Created comprehensive consent management system with individual file generation for each checkbox consent
+- June 26, 2025. Added systematic consent tracking with named files following ConsentType_FirstName_LastName_Email_ClaimID_Timestamp.json format
+- June 26, 2025. Integrated APPR validation in both commission calculator and claim submission forms to reduce processing costs
 ```
 
 ## User Preferences

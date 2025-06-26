@@ -166,6 +166,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Generate claim ID for consent tracking
+      const generateClaimId = (email: string): string => {
+        const timestamp = Date.now().toString();
+        const hash = require('crypto').createHash('sha256')
+          .update(email + timestamp)
+          .digest('base64')
+          .replace(/[^a-zA-Z0-9]/g, '')
+          .substring(0, 8);
+        return `YUL-${hash}-${Math.random().toString(36).substring(2, 8)}`;
+      };
+      
+      const claimId = generateClaimId(claimData.email || '');
+      
+      // Record claim-specific consents with individual files
+      if (claimData.poaConsent) {
+        await consentManager.recordConsent({
+          consentType: 'poa',
+          userEmail: claimData.email || 'unknown@email.com',
+          userName: claimData.passengerName || 'Unknown User',
+          claimId: claimId,
+          timestamp: new Date().toISOString(),
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent'),
+          documentVersion: '1.0',
+          agreed: true
+        });
+      }
+
+      if (claimData.emailMarketingConsentClaim) {
+        await consentManager.recordConsent({
+          consentType: 'emailMarketing',
+          userEmail: claimData.email || 'unknown@email.com',
+          userName: claimData.passengerName || 'Unknown User',
+          claimId: claimId,
+          timestamp: new Date().toISOString(),
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent'),
+          documentVersion: '1.0',
+          agreed: true
+        });
+      }
+
       // Create claim in database
       const claim = await storage.createClaim({
         ...claimData,
@@ -604,6 +646,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
         avgCompensation: 580,
         commissionRate: 15,
       });
+    }
+  });
+
+  // Consent Management API Endpoints
+  
+  // Get user consent audit trail
+  app.get("/api/consent/audit/:email", async (req, res) => {
+    try {
+      const { email } = req.params;
+      const auditTrail = await consentManager.generateUserAuditTrail(email);
+      res.json(auditTrail);
+    } catch (error) {
+      console.error("Error fetching consent audit trail:", error);
+      res.status(500).json({ message: "Failed to fetch consent audit trail" });
+    }
+  });
+
+  // Validate user consent status
+  app.post("/api/consent/validate", async (req, res) => {
+    try {
+      const { email, requiredConsents } = req.body;
+      const validation = await consentManager.validateUserConsent(email, requiredConsents);
+      res.json(validation);
+    } catch (error) {
+      console.error("Error validating consent:", error);
+      res.status(500).json({ message: "Failed to validate consent" });
+    }
+  });
+
+  // Export consent records for compliance
+  app.get("/api/consent/export", async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      const start = startDate ? new Date(startDate as string) : undefined;
+      const end = endDate ? new Date(endDate as string) : undefined;
+      
+      const records = await consentManager.exportConsentRecords(start, end);
+      res.json(records);
+    } catch (error) {
+      console.error("Error exporting consent records:", error);
+      res.status(500).json({ message: "Failed to export consent records" });
+    }
+  });
+
+  // Record individual consent (for manual consent tracking)
+  app.post("/api/consent/record", async (req, res) => {
+    try {
+      const consentRecord = req.body;
+      consentRecord.ipAddress = req.ip;
+      consentRecord.userAgent = req.get('User-Agent');
+      consentRecord.timestamp = new Date().toISOString();
+      
+      const filename = await consentManager.recordConsent(consentRecord);
+      res.json({ message: "Consent recorded successfully", filename });
+    } catch (error) {
+      console.error("Error recording consent:", error);
+      res.status(500).json({ message: "Failed to record consent" });
     }
   });
 
