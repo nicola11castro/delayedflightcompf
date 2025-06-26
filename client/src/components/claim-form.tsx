@@ -378,10 +378,12 @@ export function ClaimForm() {
                               <FormLabel>Meal Vouchers Received</FormLabel>
                               <FormControl>
                                 <Input
-                                  {...field}
-                                  value={field.value || ""}
                                   placeholder="e.g., $15 or None"
                                   className="win98-inset"
+                                  value={field.value || ""}
+                                  onChange={field.onChange}
+                                  onBlur={field.onBlur}
+                                  name={field.name}
                                 />
                               </FormControl>
                               <p className="text-xs text-muted-foreground">
