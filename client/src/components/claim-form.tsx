@@ -402,63 +402,6 @@ export function ClaimForm() {
                     </div>
                   </div>
                 )}
-                  <div className="space-y-6">
-                    <div>
-                      <h3 className="font-inter font-semibold text-lg text-gray-900 dark:text-white mb-4">
-                        Supporting Documents
-                      </h3>
-                      
-                      <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center hover:border-primary transition-colors duration-200">
-                        <CloudUpload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                        <p className="text-gray-600 dark:text-gray-400 mb-2">
-                          Upload your boarding pass and any relevant documents
-                        </p>
-                        <p className="text-sm text-gray-500 dark:text-gray-500 mb-4">
-                          PDF, PNG, JPG up to 10MB each (max 5 files)
-                        </p>
-                        <label htmlFor="file-upload">
-                          <Button type="button" className="btn-primary cursor-pointer">
-                            Choose Files
-                          </Button>
-                          <input
-                            id="file-upload"
-                            type="file"
-                            multiple
-                            accept=".pdf,.png,.jpg,.jpeg"
-                            onChange={handleFileUpload}
-                            className="hidden"
-                          />
-                        </label>
-                      </div>
-
-                      {uploadedFiles.length > 0 && (
-                        <div className="mt-4 space-y-2">
-                          <h4 className="font-medium text-gray-900 dark:text-white">Uploaded Files:</h4>
-                          {uploadedFiles.map((file, index) => (
-                            <div key={index} className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                              <div className="flex items-center space-x-2">
-                                <FileText className="h-4 w-4 text-gray-500" />
-                                <span className="text-sm font-medium">{file.name}</span>
-                                <span className="text-xs text-gray-500">
-                                  ({(file.size / 1024 / 1024).toFixed(1)} MB)
-                                </span>
-                              </div>
-                              <Button 
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeFile(index)}
-                                className="text-red-500 hover:text-red-700"
-                              >
-                                Remove
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
 
                 {/* Step 3: Agreements */}
                 {currentStep === 3 && (
@@ -563,10 +506,11 @@ export function ClaimForm() {
                           </div>
                         </FormItem>
                       )}
-                      />
-                    </div>
+                    />
                   </div>
                 )}
+
+                {/* Navigation Buttons */}
 
                 {/* Navigation Buttons */}
                 <div className="flex justify-between pt-6 border-t">

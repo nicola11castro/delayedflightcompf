@@ -154,6 +154,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get claim status by claim ID  
+  app.get("/api/claims/status/:claimId", async (req, res) => {
+    try {
+      const claim = await storage.getClaimByClaimId(req.params.claimId);
+      if (!claim) {
+        return res.status(404).json({ message: "Claim not found" });
+      }
+      res.json(claim);
+    } catch (error) {
+      console.error("Get claim status error:", error);
+      res.status(500).json({ message: "Failed to retrieve claim status" });
+    }
+  });
+
   // Commission calculator endpoint
   app.post("/api/calculate-compensation", async (req, res) => {
     try {
