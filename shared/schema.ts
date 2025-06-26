@@ -52,6 +52,9 @@ export const insertClaimSchema = createInsertSchema(claims).omit({
   createdAt: true,
   updatedAt: true,
   statusHistory: true,
+}).extend({
+  delayDuration: z.string().min(1, "Delay duration is required"),
+  delayReason: z.string().min(1, "Delay reason is required"),
 });
 
 export const insertFaqSchema = createInsertSchema(faqItems).omit({

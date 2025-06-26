@@ -354,12 +354,54 @@ export function ClaimForm() {
                       <h3 className="font-inter font-semibold text-lg text-gray-900 dark:text-white mb-4">
                         Supporting Documents
                       </h3>
+                      
+                      <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center hover:border-primary transition-colors duration-200">
+                        <CloudUpload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                        <p className="text-gray-600 dark:text-gray-400 mb-2">
+                          Upload boarding pass and any relevant documents
+                        </p>
+                        <p className="text-sm text-gray-500 dark:text-gray-500 mb-4">
+                          PDF, PNG, or JPG files up to 10MB each
+                        </p>
+                        <input
+                          type="file"
+                          multiple
+                          accept=".pdf,.png,.jpg,.jpeg"
+                          onChange={handleFileUpload}
+                          className="hidden"
+                          id="file-upload"
+                        />
+                        <label htmlFor="file-upload">
+                          <Button type="button" variant="outline" asChild>
+                            <span className="cursor-pointer">Choose Files</span>
+                          </Button>
+                        </label>
+                      </div>
+
+                      {uploadedFiles.length > 0 && (
+                        <div className="mt-4 space-y-2">
+                          <h4 className="font-medium text-gray-900 dark:text-white">Uploaded Files:</h4>
+                          {uploadedFiles.map((file, index) => (
+                            <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                              <div className="flex items-center">
+                                <FileText className="h-5 w-5 text-blue-500 mr-2" />
+                                <span className="text-sm text-gray-700 dark:text-gray-300">{file.name}</span>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setUploadedFiles(files => files.filter((_, i) => i !== index))}
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
-
-                {/* Step 2: File Upload */}
-                {currentStep === 2 && (
                   <div className="space-y-6">
                     <div>
                       <h3 className="font-inter font-semibold text-lg text-gray-900 dark:text-white mb-4">

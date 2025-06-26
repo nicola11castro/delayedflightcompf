@@ -4,6 +4,7 @@ import { TrustIndicators } from "@/components/trust-indicators";
 import { ClaimForm } from "@/components/claim-form";
 import { CommissionCalculator } from "@/components/commission-calculator";
 import { ClaimTracking } from "@/components/claim-tracking";
+import { ClaimStatus } from "@/components/claim-status";
 import { FaqSection } from "@/components/faq-section";
 import { Footer } from "@/components/footer";
 import { ClippyAssistant } from "@/components/clippy-assistant";
@@ -14,8 +15,9 @@ export default function Home() {
       <Navigation />
       <Hero />
       <TrustIndicators />
-      <ClaimForm />
       <CommissionCalculator />
+      <ClaimForm />
+      <ClaimStatus />
       <ClaimTracking />
       <FaqSection />
       <Footer />
