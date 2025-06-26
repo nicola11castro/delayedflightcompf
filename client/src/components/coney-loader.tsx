@@ -27,56 +27,71 @@ export function ConeyLoader({ className, size = "md" }: ConeyLoaderProps) {
   return (
     <div className={cn("inline-flex items-center justify-center", className)}>
       <div className={cn("relative", sizeClasses[size])}>
-        {/* Côney cone body - orange construction cone */}
+        {/* Côney cone body - orange construction cone with Montreal vibes */}
         <div 
-          className="absolute inset-0 animate-spin"
+          className="absolute inset-0 animate-spin win98-border"
           style={{
             background: "linear-gradient(135deg, #ff6b35 0%, #f7931e 50%, #ff6b35 100%)",
             clipPath: "polygon(50% 0%, 15% 100%, 85% 100%)",
             borderRadius: "2px 2px 4px 4px",
-            animationDuration: "2s"
+            animationDuration: "2s",
+            boxShadow: "inset 1px 1px 0 rgba(255,255,255,0.8), inset -1px -1px 0 rgba(0,0,0,0.3)"
           }}
         >
-          {/* White reflective stripes */}
+          {/* White reflective stripes with Windows 98 styling */}
           <div 
-            className="absolute w-full bg-white opacity-80"
+            className="absolute w-full bg-white opacity-90 win98-border"
             style={{ 
               top: "30%", 
-              height: size === "lg" ? "3px" : size === "md" ? "2px" : "1px"
+              height: size === "lg" ? "3px" : size === "md" ? "2px" : "1px",
+              boxShadow: "inset 1px 1px 0 rgba(255,255,255,0.9), inset -1px -1px 0 rgba(0,0,0,0.2)"
             }}
           />
           <div 
-            className="absolute w-full bg-white opacity-80"
+            className="absolute w-full bg-white opacity-90 win98-border"
             style={{ 
               top: "60%", 
-              height: size === "lg" ? "3px" : size === "md" ? "2px" : "1px"
+              height: size === "lg" ? "3px" : size === "md" ? "2px" : "1px",
+              boxShadow: "inset 1px 1px 0 rgba(255,255,255,0.9), inset -1px -1px 0 rgba(0,0,0,0.2)"
             }}
           />
         </div>
 
-        {/* Googly eyes container */}
+        {/* Googly eyes container with Windows 98 styling */}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className={`flex mt-1 ${size === "lg" ? "gap-1" : "gap-0.5"}`}>
-            {/* Left googly eye */}
-            <div className={cn("relative bg-white rounded-full border border-gray-300", eyeSize[size])}>
+            {/* Left googly eye with win98 border */}
+            <div 
+              className={cn("relative bg-white rounded-full win98-border", eyeSize[size])}
+              style={{
+                boxShadow: "inset 1px 1px 0 rgba(255,255,255,0.9), inset -1px -1px 0 rgba(0,0,0,0.3), 1px 1px 2px rgba(0,0,0,0.2)"
+              }}
+            >
               <div 
                 className="absolute bg-black rounded-full"
                 style={{
                   width: "60%",
                   height: "60%",
-                  animation: "eyeMovementLeft 1.2s ease-in-out infinite"
+                  animation: "eyeMovementLeft 1.2s ease-in-out infinite",
+                  boxShadow: "1px 1px 1px rgba(0,0,0,0.3)"
                 }}
               />
             </div>
             
-            {/* Right googly eye */}
-            <div className={cn("relative bg-white rounded-full border border-gray-300", eyeSize[size])}>
+            {/* Right googly eye with win98 border */}
+            <div 
+              className={cn("relative bg-white rounded-full win98-border", eyeSize[size])}
+              style={{
+                boxShadow: "inset 1px 1px 0 rgba(255,255,255,0.9), inset -1px -1px 0 rgba(0,0,0,0.3), 1px 1px 2px rgba(0,0,0,0.2)"
+              }}
+            >
               <div 
                 className="absolute bg-black rounded-full"
                 style={{
                   width: "60%",
                   height: "60%",
-                  animation: "eyeMovementRight 1.2s ease-in-out infinite"
+                  animation: "eyeMovementRight 1.2s ease-in-out infinite",
+                  boxShadow: "1px 1px 1px rgba(0,0,0,0.3)"
                 }}
               />
             </div>

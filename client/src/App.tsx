@@ -26,13 +26,16 @@ function Router() {
 
   if (isInitialLoading) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center">
-        <div className="text-center">
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center win98-bg">
+        <div className="text-center win98-panel p-8 max-w-md">
           <ConeyLoader size="lg" className="mb-6" />
           <h1 className="text-2xl font-bold mb-2 win98-text">FlightClaim Pro</h1>
-          <p className="text-muted-foreground text-sm">Côney's getting things ready...</p>
-          <div className="mt-4 text-xs text-muted-foreground">
-            Montreal's finest flight compensation service
+          <p className="text-muted-foreground text-sm mb-2">Côney's getting things ready...</p>
+          <div className="mt-4 text-xs text-muted-foreground win98-text">
+            🍁 Montreal's finest flight compensation service 🍁
+          </div>
+          <div className="mt-2 text-xs text-muted-foreground">
+            Powered by authentic retro computing
           </div>
         </div>
       </div>
