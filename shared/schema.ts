@@ -44,6 +44,7 @@ export const claims = pgTable("claims", {
   issueType: text("issue_type").notNull(), // delayed, cancelled, denied-boarding, missed-connection
   delayDuration: text("delay_duration"), // 3-6, 6-9, 9+
   delayReason: text("delay_reason"),
+  mealVouchers: text("meal_vouchers"), // CAD amount of meal vouchers received
   boardingPassUrl: text("boarding_pass_url"),
   documentsUrls: jsonb("documents_urls").$type<string[]>().default([]),
   status: text("status").notNull().default("submitted"), // submitted, under-review, approved, rejected, paid
@@ -98,6 +99,12 @@ export const insertClaimSchema = createInsertSchema(claims).omit({
   commissionAmount: true,
   notes: true,
   eligibilityValidation: true,
+  mealVouchers: true,
+  poaDocumentUrl: true,
+  poaSigned: true,
+  boardingPassUrl: true,
+  documentsUrls: true,
+  status: true,
 });
 
 export const insertFaqSchema = createInsertSchema(faqItems).omit({

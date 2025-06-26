@@ -55,6 +55,7 @@ export function CommissionCalculator() {
       distance, 
       delayDuration: delayHours,
       delayReason,
+      mealVouchers,
       claimId
     });
   };

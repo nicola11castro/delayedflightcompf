@@ -68,6 +68,7 @@ export function ClaimForm() {
         issueType: data.issueType,
         delayDuration: data.delayDuration,
         delayReason: data.delayReason,
+        mealVouchers: data.mealVouchers || "",
         poaRequested: data.poaRequested || false,
         poaConsent: data.poaConsent || false,
         emailMarketingConsentClaim: data.emailMarketingConsentClaim || false,
