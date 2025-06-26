@@ -127,6 +127,8 @@ Changelog:
 - June 26, 2025. Added Power of Attorney and Email Marketing consents in claim submission
 - June 26, 2025. Created consent modal system with full document content from attached PDFs
 - June 26, 2025. Added visible login and registration navigation options in header and hero sections
+- June 26, 2025. Consolidated redundant claim tracking components into single unified interface
+- June 26, 2025. Improved page structure with proper section organization and navigation anchors
 ```
 
 ## User Preferences

@@ -11,7 +11,7 @@ export function Navigation() {
   const navItems = [
     { href: "#claims", label: "Submit Claim" },
     { href: "#track", label: "Track Status" },
-    { href: "#calculator", label: "Commission Calculator" },
+    { href: "#calculator", label: "Calculator" },
     { href: "#faq", label: "FAQ" },
   ];
 
