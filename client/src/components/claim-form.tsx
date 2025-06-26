@@ -13,10 +13,13 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { generateClaimId } from "@/lib/claim-id";
 import { insertClaimSchema } from "@shared/schema";
 import { z } from "zod";
 
 const claimFormSchema = insertClaimSchema.extend({
+  delayDuration: z.string().min(1, "Delay duration is required"),
+  delayReason: z.string().min(1, "Delay reason is required"),
   commissionAgreement: z.boolean().refine((val) => val === true, {
     message: "You must agree to the commission structure to submit a claim",
   }),
@@ -49,14 +52,16 @@ export function ClaimForm() {
 
   const submitClaimMutation = useMutation({
     mutationFn: async (data: ClaimFormData) => {
+      const claimId = generateClaimId(data.email);
       const formData = new FormData();
       
-      // Append form fields
+      // Append form fields including generated claim ID
       Object.entries(data).forEach(([key, value]) => {
         if (key !== 'commissionAgreement') {
           formData.append(key, String(value));
         }
       });
+      formData.append('claimId', claimId);
 
       // Append files
       uploadedFiles.forEach((file) => {
@@ -290,15 +295,15 @@ export function ClaimForm() {
                           name="delayDuration"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Delay Duration (if applicable)</FormLabel>
+                              <FormLabel>Delay Duration *</FormLabel>
                               <FormControl>
-                                <Select onValueChange={field.onChange} value={field.value}>
+                                <Select onValueChange={field.onChange} value={field.value || ""}>
                                   <SelectTrigger>
                                     <SelectValue placeholder="Select delay duration" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="3-6">3-6 hours</SelectItem>
-                                    <SelectItem value="6-9">6-9 hours</SelectItem>
+                                    <SelectItem value="3-6">3–6 hours</SelectItem>
+                                    <SelectItem value="6-9">6–9 hours</SelectItem>
                                     <SelectItem value="9+">9+ hours</SelectItem>
                                   </SelectContent>
                                 </Select>
@@ -313,19 +318,42 @@ export function ClaimForm() {
                           name="delayReason"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Reason given by airline (optional)</FormLabel>
+                              <FormLabel>Delay Reason *</FormLabel>
                               <FormControl>
-                                <Textarea 
-                                  placeholder="e.g., mechanical issues, crew shortage, weather..."
-                                  rows={3}
-                                  {...field}
-                                />
+                                <Select onValueChange={field.onChange} value={field.value || ""}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select delay reason" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="maintenance_non_safety">Maintenance Issues (Non-Safety)</SelectItem>
+                                    <SelectItem value="crew_scheduling">Crew Scheduling Problems</SelectItem>
+                                    <SelectItem value="overbooking">Overbooking or Boarding Issues</SelectItem>
+                                    <SelectItem value="operational_decisions">Operational Decisions</SelectItem>
+                                    <SelectItem value="it_failure">IT System Failures</SelectItem>
+                                    <SelectItem value="ground_handling">Ground Handling Delays</SelectItem>
+                                    <SelectItem value="fueling_deicing">Fueling or De-Icing Delays (Non-Weather)</SelectItem>
+                                    <SelectItem value="weather">Weather Conditions</SelectItem>
+                                    <SelectItem value="atc">Air Traffic Control (ATC) Restrictions</SelectItem>
+                                    <SelectItem value="security">Security Incidents</SelectItem>
+                                  </SelectContent>
+                                </Select>
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 2: File Upload */}
+                {currentStep === 2 && (
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="font-inter font-semibold text-lg text-gray-900 dark:text-white mb-4">
+                        Supporting Documents
+                      </h3>
                     </div>
                   </div>
                 )}

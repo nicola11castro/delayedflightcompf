@@ -157,7 +157,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Commission calculator endpoint
   app.post("/api/calculate-compensation", async (req, res) => {
     try {
-      const { distance, delayDuration } = req.body;
+      const { email, distance, delayDuration, delayReason, claimId } = req.body;
       
       let compensationAmount = 0;
       
@@ -185,6 +185,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         compensationAmount,
         commissionAmount,
         finalAmount,
+        claimId,
         explanation,
       });
     } catch (error) {
