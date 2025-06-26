@@ -7,6 +7,7 @@ import { airtableService } from "./services/airtable";
 import { docusignService } from "./services/docusign";
 import { emailService } from "./services/email";
 import { googleSheetsService } from "./services/google-sheets";
+import { consentManager } from "./services/consent-manager";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import multer from "multer";
 import path from "path";
@@ -44,12 +45,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Registration route
+  // Initialize consent documents on server start
+  await consentManager.generateConsentDocuments();
+
+  // Registration route with consent tracking
   app.post('/api/register', async (req, res) => {
     try {
       const userData = req.body;
       
-      // For now, just return success - in a real app you'd create the user
+      // Record each consent with individual files
+      if (userData.termsAccepted) {
+        await consentManager.recordConsent({
+          consentType: 'terms',
+          userEmail: userData.email || 'unknown@email.com',
+          userName: userData.firstName && userData.lastName ? `${userData.firstName} ${userData.lastName}` : 'Unknown User',
+          timestamp: new Date().toISOString(),
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent'),
+          documentVersion: '1.0',
+          agreed: true
+        });
+      }
+
+      if (userData.privacyAccepted) {
+        await consentManager.recordConsent({
+          consentType: 'privacy',
+          userEmail: userData.email || 'unknown@email.com',
+          userName: userData.firstName && userData.lastName ? `${userData.firstName} ${userData.lastName}` : 'Unknown User',
+          timestamp: new Date().toISOString(),
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent'),
+          documentVersion: '1.0',
+          agreed: true
+        });
+      }
+
+      if (userData.dataRetentionAccepted) {
+        await consentManager.recordConsent({
+          consentType: 'dataRetention',
+          userEmail: userData.email || 'unknown@email.com',
+          userName: userData.firstName && userData.lastName ? `${userData.firstName} ${userData.lastName}` : 'Unknown User',
+          timestamp: new Date().toISOString(),
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent'),
+          documentVersion: '1.0',
+          agreed: true
+        });
+      }
+
+      if (userData.emailMarketingConsent) {
+        await consentManager.recordConsent({
+          consentType: 'emailMarketing',
+          userEmail: userData.email || 'unknown@email.com',
+          userName: userData.firstName && userData.lastName ? `${userData.firstName} ${userData.lastName}` : 'Unknown User',
+          timestamp: new Date().toISOString(),
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent'),
+          documentVersion: '1.0',
+          agreed: true
+        });
+      }
+      
       res.json({ 
         message: "Registration successful",
         user: {

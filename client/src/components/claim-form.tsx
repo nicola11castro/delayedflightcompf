@@ -31,6 +31,7 @@ type ClaimFormData = z.infer<typeof claimFormSchema>;
 export function ClaimForm() {
   const [currentStep, setCurrentStep] = useState(1);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [showApprModal, setShowApprModal] = useState<boolean>(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -142,6 +143,12 @@ export function ClaimForm() {
   };
 
   const onSubmit = (data: ClaimFormData) => {
+    // APPR validation - check if delay reason is admissible
+    if (data.delayReason && !getDelayReasonValidity(data.delayReason)) {
+      setShowApprModal(true);
+      return;
+    }
+
     submitClaimMutation.mutate(data);
   };
 
@@ -354,16 +361,15 @@ export function ClaimForm() {
                                     <SelectValue placeholder="Select delay reason" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="maintenance_non_safety">Maintenance Issues (Non-Safety)</SelectItem>
-                                    <SelectItem value="crew_scheduling">Crew Scheduling Problems</SelectItem>
-                                    <SelectItem value="overbooking">Overbooking or Boarding Issues</SelectItem>
-                                    <SelectItem value="operational_decisions">Operational Decisions</SelectItem>
-                                    <SelectItem value="it_failure">IT System Failures</SelectItem>
-                                    <SelectItem value="ground_handling">Ground Handling Delays</SelectItem>
-                                    <SelectItem value="fueling_deicing">Fueling or De-Icing Delays (Non-Weather)</SelectItem>
-                                    <SelectItem value="weather">Weather Conditions</SelectItem>
-                                    <SelectItem value="atc">Air Traffic Control (ATC) Restrictions</SelectItem>
-                                    <SelectItem value="security">Security Incidents</SelectItem>
+                                    {delayReasons.map((reason) => (
+                                      <SelectItem 
+                                        key={reason.value} 
+                                        value={reason.value}
+                                        className={!reason.valid ? "text-red-600 dark:text-red-400" : ""}
+                                      >
+                                        {reason.label} {!reason.valid && "❌"}
+                                      </SelectItem>
+                                    ))}
                                   </SelectContent>
                                 </Select>
                               </FormControl>
@@ -558,6 +564,13 @@ export function ClaimForm() {
             </Form>
           </CardContent>
         </Card>
+
+        {/* APPR Validation Modal */}
+        <ApprValidationModal
+          isOpen={showApprModal}
+          onClose={() => setShowApprModal(false)}
+          delayReason={form.watch("delayReason") || ""}
+        />
       </div>
     </section>
   );
