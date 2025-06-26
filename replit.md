@@ -126,6 +126,7 @@ Changelog:
 - June 26, 2025. Implemented hybrid consent approach with Terms, Privacy, Data Retention at registration
 - June 26, 2025. Added Power of Attorney and Email Marketing consents in claim submission
 - June 26, 2025. Created consent modal system with full document content from attached PDFs
+- June 26, 2025. Added visible login and registration navigation options in header and hero sections
 ```
 
 ## User Preferences

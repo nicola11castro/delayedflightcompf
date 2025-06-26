@@ -176,12 +176,20 @@ export default function Register() {
                 )}
               </Button>
 
-              <p className="text-xs text-center text-muted-foreground">
-                Already have an account?{" "}
-                <a href="/api/login" className="underline hover:text-primary">
-                  Sign in here
-                </a>
-              </p>
+              <div className="text-center space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Already have an account?{" "}
+                  <a href="/api/login" className="underline hover:text-primary">
+                    Sign in here
+                  </a>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Want to explore first?{" "}
+                  <a href="/" className="underline hover:text-primary">
+                    Go back to home
+                  </a>
+                </p>
+              </div>
             </form>
           </Form>
         </CardContent>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { Plane, Moon, Sun, Menu, X } from "lucide-react";
+import { Plane, Moon, Sun, Menu, X, UserPlus, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useThemeContext } from "@/components/theme-provider";
 
@@ -47,6 +47,20 @@ export function Navigation() {
                 {item.label}
               </button>
             ))}
+            
+            <Link href="/register">
+              <Button variant="ghost" size="sm" className="win98-button text-xs">
+                <UserPlus className="h-3 w-3 mr-1" />
+                Register
+              </Button>
+            </Link>
+            
+            <a href="/api/login">
+              <Button variant="ghost" size="sm" className="win98-button text-xs">
+                <LogIn className="h-3 w-3 mr-1" />
+                Login
+              </Button>
+            </a>
             
             <Button
               variant="ghost"
@@ -105,6 +119,18 @@ export function Navigation() {
                   {item.label}
                 </button>
               ))}
+              <Link href="/register">
+                <Button variant="ghost" size="sm" className="win98-button text-xs w-full justify-start">
+                  <UserPlus className="h-3 w-3 mr-1" />
+                  Register
+                </Button>
+              </Link>
+              <a href="/api/login">
+                <Button variant="ghost" size="sm" className="win98-button text-xs w-full justify-start">
+                  <LogIn className="h-3 w-3 mr-1" />
+                  Login
+                </Button>
+              </a>
             </div>
           </div>
         )}

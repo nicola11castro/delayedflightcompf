@@ -55,6 +55,16 @@ export function Hero() {
                 Calculate
               </Button>
             </div>
+            
+            <div className="flex gap-2 mt-3 text-xs">
+              <a href="/register" className="underline hover:text-primary">
+                New User? Register here
+              </a>
+              <span>•</span>
+              <a href="/api/login" className="underline hover:text-primary">
+                Have an account? Login
+              </a>
+            </div>
           </div>
 
           <div>
