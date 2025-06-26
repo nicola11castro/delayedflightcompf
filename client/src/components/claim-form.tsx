@@ -369,6 +369,28 @@ export function ClaimForm() {
                             </FormItem>
                           )}
                         />
+
+                        <FormField
+                          control={form.control}
+                          name="mealVouchers"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Meal Vouchers Received</FormLabel>
+                              <FormControl>
+                                <Input
+                                  {...field}
+                                  value={field.value || ""}
+                                  placeholder="e.g., $15 or None"
+                                  className="win98-inset"
+                                />
+                              </FormControl>
+                              <p className="text-xs text-muted-foreground">
+                                If you received meal vouchers, specify amount in CAD. Otherwise enter "None".
+                              </p>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
                       </div>
                     </div>
                   </div>
