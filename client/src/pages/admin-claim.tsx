@@ -12,10 +12,13 @@ import { CLAIM_STATUSES, type Claim, type ClaimEvent } from "@shared/schema";
 import { delayReasons } from "@shared/appr";
 import { ArrowLeft, Mail, FileText, PenTool, CreditCard, AlertTriangle, Send, StickyNote } from "lucide-react";
 
+interface FlightCase { cause?: string | null; causeStatus?: string | null; notes?: string | null; updatedBy?: string | null; updatedAt?: string }
 interface ClaimDetail extends Claim {
   events: ClaimEvent[];
   lifecycle: { airlineResponseDays: number; daysLeft: number | null; overdue: boolean; canEscalate: boolean };
   poaSignUrl: string | null;
+  flightCase: FlightCase | null;
+  flightKey: string;
 }
 
 const EVENT_ICON: Record<string, string> = {
@@ -32,6 +35,9 @@ export default function AdminClaim() {
   const [status, setStatus] = useState("");
   const [statusNote, setStatusNote] = useState("");
   const [ctaRef, setCtaRef] = useState("");
+  const [escalationPath, setEscalationPath] = useState<"cta" | "small_claims">("small_claims");
+  const [refusalReason, setRefusalReason] = useState("");
+  const [fc, setFc] = useState<{ cause: string; causeStatus: string; notes: string } | null>(null);
 
   const key = [`/api/admin/claims/${id}`];
   const { data: claim, isLoading, error } = useQuery<ClaimDetail>({ queryKey: key, enabled: isAdmin && Number.isInteger(id) });
@@ -48,7 +54,12 @@ export default function AdminClaim() {
   const addNote = useMutation({ mutationFn: async () => (await apiRequest("POST", `/api/admin/claims/${id}/notes`, { message: note })).json(), ...run("Note added"), onSuccess: () => { setNote(""); refresh(); } });
   const changeStatus = useMutation({ mutationFn: async () => (await apiRequest("PATCH", `/api/admin/claims/${id}/status`, { status, notes: statusNote || undefined })).json(), ...run("Status updated"), onSuccess: () => { setStatus(""); setStatusNote(""); refresh(); } });
   const emailAirline = useMutation({ mutationFn: async () => (await apiRequest("POST", `/api/admin/claims/${id}/email-airline`)).json(), ...run("Claim letter") });
-  const escalate = useMutation({ mutationFn: async () => (await apiRequest("POST", `/api/admin/claims/${id}/escalate`, { reference: ctaRef || undefined })).json(), ...run("Escalation") });
+  const escalate = useMutation({ mutationFn: async () => (await apiRequest("POST", `/api/admin/claims/${id}/escalate`, { path: escalationPath, reference: ctaRef || undefined })).json(), ...run("Escalation") });
+  const refused = useMutation({ mutationFn: async () => (await apiRequest("POST", `/api/admin/claims/${id}/refused`, { reason: refusalReason || undefined })).json(), ...run("Refusal recorded"), onSuccess: () => { setRefusalReason(""); refresh(); } });
+  const saveFlightCase = useMutation({
+    mutationFn: async () => (await apiRequest("PUT", `/api/admin/flights/${claim!.flightKey}`, { flightNumber: claim!.flightNumber, flightDate: claim!.flightDate, ...fc })).json(),
+    ...run("Flight investigation saved"),
+  });
   const invoice = useMutation({ mutationFn: async () => (await apiRequest("POST", `/api/admin/claims/${id}/payment-link`)).json(), ...run("Invoice") });
 
   if (authLoading) return <div className="p-6 text-sm">Checking your session...</div>;
@@ -103,17 +114,52 @@ export default function AdminClaim() {
                 )}
               </div>
               <div>CTA complaint: {date(claim.ctaFiledAt)}</div>
+              <div>Airline refused: {date(claim.airlineRefusedAt)}</div>
+              <div>Small claims filed: {date(claim.smallClaimsFiledAt)}</div>
+              <div>Service level: <Badge variant="secondary">{claim.serviceLevel ?? "managed"}</Badge>{claim.kitPaidAt ? ` · kit paid ${date(claim.kitPaidAt)}` : ""}</div>
               <div className="flex flex-col gap-2 pt-2">
                 <Button size="sm" className="win98-button text-xs justify-start" onClick={() => emailAirline.mutate()} disabled={emailAirline.isPending || closed}>
                   <Mail className="h-3 w-3 mr-2" />{claim.airlineContactedAt ? "Re-send claim letter to airline" : "Send claim letter to airline"}
                 </Button>
-                {claim.lifecycle.canEscalate && (
+                {!claim.airlineRefusedAt && !closed && (
                   <div className="flex gap-2">
-                    <Input value={ctaRef} onChange={(e) => setCtaRef(e.target.value)} placeholder="CTA reference (optional)" className="win98-input text-xs" />
-                    <Button size="sm" variant="destructive" className="win98-button text-xs" onClick={() => escalate.mutate()} disabled={escalate.isPending}>Escalate to CTA</Button>
+                    <Input value={refusalReason} onChange={(e) => setRefusalReason(e.target.value)} placeholder="Airline's stated reason (optional)" className="win98-input text-xs" />
+                    <Button size="sm" variant="outline" className="win98-button text-xs" onClick={() => refused.mutate()} disabled={refused.isPending}>Airline refused</Button>
+                  </div>
+                )}
+                {!closed && (claim.airlineRefusedAt || claim.lifecycle.canEscalate) && (
+                  <div className="flex flex-col gap-2 win98-inset p-2">
+                    <div className="flex gap-2 items-center">
+                      <select className="win98-input text-xs" value={escalationPath} onChange={(e) => setEscalationPath(e.target.value as "cta" | "small_claims")}>
+                        <option value="small_claims">Québec small claims (months)</option>
+                        <option value="cta">CTA complaint (years)</option>
+                      </select>
+                      <Input value={ctaRef} onChange={(e) => setCtaRef(e.target.value)} placeholder="Reference (optional)" className="win98-input text-xs" />
+                      <Button size="sm" variant="destructive" className="win98-button text-xs" onClick={() => escalate.mutate()} disabled={escalate.isPending || (escalationPath === "cta" ? !!claim.ctaFiledAt : !!claim.smallClaimsFiledAt)}>Record filing</Button>
+                    </div>
+                    <a href={`/api/claims/${encodeURIComponent(claim.claimId)}/small-claims.pdf`} target="_blank" rel="noreferrer" className="underline text-xs">Generate small-claims file (PDF)</a>
                   </div>
                 )}
               </div>
+            </div>
+
+            <div className="win98-panel text-sm space-y-2">
+              <h3 className="font-bold">Flight investigation ({claim.flightKey})</h3>
+              <p className="text-xs text-muted-foreground">Shared with every passenger on this flight. <Link href="/admin#flights" className="underline">All flights</Link></p>
+              {(() => { const current = fc ?? { cause: claim.flightCase?.cause ?? "", causeStatus: claim.flightCase?.causeStatus ?? "unknown", notes: claim.flightCase?.notes ?? "" }; return (
+                <>
+                  <select className="win98-input text-xs w-full" value={current.causeStatus} onChange={(e) => setFc({ ...current, causeStatus: e.target.value })}>
+                    <option value="unknown">Cause unknown</option>
+                    <option value="admissible">Within airline control (compensable)</option>
+                    <option value="contested">Airline claims exemption, we contest</option>
+                    <option value="inadmissible">Genuinely outside control</option>
+                  </select>
+                  <Input value={current.cause} onChange={(e) => setFc({ ...current, cause: e.target.value })} placeholder="What actually happened (one line)" className="win98-input text-xs" />
+                  <textarea className="win98-input text-xs w-full min-h-[60px]" value={current.notes} onChange={(e) => setFc({ ...current, notes: e.target.value })} placeholder="Evidence, sources, airline statements, CTA decisions to cite" />
+                  <Button size="sm" className="win98-button text-xs" onClick={() => { setFc(current); saveFlightCase.mutate(); }} disabled={saveFlightCase.isPending}>Save for all passengers on this flight</Button>
+                  {claim.flightCase?.updatedBy && <p className="text-xs text-muted-foreground">Last updated by {claim.flightCase.updatedBy} {date(claim.flightCase.updatedAt)}</p>}
+                </>
+              ); })()}
             </div>
 
             {claim.flightData && (

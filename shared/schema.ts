@@ -100,6 +100,16 @@ export const claims = pgTable("claims", {
     matchesReported?: boolean | null;
     fetchedAt: string;
   }>(),
+  // Service level: "managed" (we handle it under mandate) or "kit" (self-serve kit)
+  serviceLevel: text("service_level").default("managed"),
+  kitPaidAt: timestamp("kit_paid_at"),
+  kitStripeSessionId: varchar("kit_stripe_session_id", { length: 120 }),
+  kitDeadlineReminderAt: timestamp("kit_deadline_reminder_at"),
+  // Escalation path after an airline refusal: cta | small_claims
+  escalationPath: text("escalation_path"),
+  smallClaimsFiledAt: timestamp("small_claims_filed_at"),
+  airlineRefusedAt: timestamp("airline_refused_at"),
+  teamReminderAt: timestamp("team_reminder_at"),
   // Commission collection
   paymentStatus: text("payment_status").default("none"), // none | link_sent | paid
   paymentLinkUrl: text("payment_link_url"),
@@ -124,6 +134,23 @@ export const claims = pgTable("claims", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+// One row per disrupted flight: shared cause investigation reused across every passenger on it.
+export const flightCases = pgTable(
+  "flight_cases",
+  {
+    id: serial("id").primaryKey(),
+    flightKey: varchar("flight_key", { length: 40 }).notNull().unique(), // e.g. AC123_2026-09-15
+    flightNumber: varchar("flight_number", { length: 10 }).notNull(),
+    flightDate: varchar("flight_date", { length: 10 }).notNull(),
+    cause: text("cause"), // what we established happened
+    causeStatus: text("cause_status").default("unknown"), // unknown | admissible | inadmissible | contested
+    notes: text("notes"),
+    updatedBy: varchar("updated_by"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+);
 
 // Everything that happens on a claim: notes, emails, status changes, signatures, payments.
 export const claimEvents = pgTable(
@@ -203,6 +230,13 @@ export const insertClaimSchema = createInsertSchema(claims).omit({
   language: true,
   poaSignedAt: true,
   flightData: true,
+  kitPaidAt: true,
+  kitStripeSessionId: true,
+  kitDeadlineReminderAt: true,
+  escalationPath: true,
+  smallClaimsFiledAt: true,
+  airlineRefusedAt: true,
+  teamReminderAt: true,
   airlineContactedAt: true,
   airlineDeadlineAt: true,
   ctaFiledAt: true,
@@ -260,6 +294,12 @@ export type ConsentRecord = typeof consentRecords.$inferSelect;
 export type InsertConsentRecord = z.infer<typeof insertConsentRecordSchema>;
 export type AuthToken = typeof authTokens.$inferSelect;
 export type ClaimEvent = typeof claimEvents.$inferSelect;
+export type FlightCase = typeof flightCases.$inferSelect;
+
+/** Stable key for grouping claims by flight. */
+export function flightKeyFor(flightNumber: string, flightDate: string): string {
+  return `${flightNumber.toUpperCase().replace(/[\s-]+/g, "")}_${flightDate}`;
+}
 export type InsertClaimEvent = typeof claimEvents.$inferInsert;
 export type RegisterUserInput = z.infer<typeof registerUserSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;

@@ -42,3 +42,15 @@ export function verifyClaimToken(claimId: string, token: string): boolean {
 export function signPoaUrl(claimId: string): string {
   return `${appUrl()}/sign/${encodeURIComponent(claimId)}?token=${claimToken(claimId)}`;
 }
+
+/** Pricing knobs. Amounts stay unset until the owner decides; the UI then says "to be announced". */
+export function pricingConfig() {
+  const kitPriceCents = Number(process.env.KIT_PRICE_CENTS ?? 0) || 0;
+  const escalatedCommissionPct = process.env.ESCALATED_COMMISSION_PCT ? Number(process.env.ESCALATED_COMMISSION_PCT) : null;
+  return {
+    commissionPct: 15,
+    escalatedCommissionPct: escalatedCommissionPct && escalatedCommissionPct > 0 ? escalatedCommissionPct : null,
+    kitPriceCents,
+    kitRequiresPayment: kitPriceCents > 0,
+  };
+}

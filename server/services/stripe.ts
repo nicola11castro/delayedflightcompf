@@ -13,10 +13,41 @@ const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 export const isStripeConfigured = () => Boolean(secretKey);
 
 export async function createCommissionCheckout(claim: Claim): Promise<{ id: string; url: string }> {
-  if (!secretKey) throw new Error("Stripe is not configured");
   const commission = Number(claim.commissionAmount ?? 0);
   if (!(commission > 0)) throw new Error("Claim has no commission amount");
+  const fr = claim.language === "fr";
+  return createCheckout({
+    claim,
+    kind: "commission",
+    amountCents: Math.round(commission * 100),
+    name: fr ? `Commission ${BRAND_NAME} – réclamation ${claim.claimId}` : `${BRAND_NAME} commission – claim ${claim.claimId}`,
+    successUrl: `${appUrl()}/my-claims?paid=1`,
+    cancelUrl: `${appUrl()}/my-claims?paid=0`,
+  });
+}
 
+export async function createKitCheckout(claim: Claim, amountCents: number): Promise<{ id: string; url: string }> {
+  const fr = claim.language === "fr";
+  return createCheckout({
+    claim,
+    kind: "kit",
+    amountCents,
+    name: fr ? `Trousse de réclamation ${BRAND_NAME} – ${claim.claimId}` : `${BRAND_NAME} self-serve claim kit – ${claim.claimId}`,
+    successUrl: `${appUrl()}/kit/${encodeURIComponent(claim.claimId)}?paid=1`,
+    cancelUrl: `${appUrl()}/kit/${encodeURIComponent(claim.claimId)}?paid=0`,
+  });
+}
+
+async function createCheckout(input: {
+  claim: Claim;
+  kind: "commission" | "kit";
+  amountCents: number;
+  name: string;
+  successUrl: string;
+  cancelUrl: string;
+}): Promise<{ id: string; url: string }> {
+  if (!secretKey) throw new Error("Stripe is not configured");
+  const { claim } = input;
   const fr = claim.language === "fr";
   const params = new URLSearchParams({
     mode: "payment",
@@ -25,12 +56,13 @@ export async function createCommissionCheckout(claim: Claim): Promise<{ id: stri
     client_reference_id: claim.claimId,
     "metadata[claimId]": claim.claimId,
     "metadata[claimDbId]": String(claim.id),
+    "metadata[kind]": input.kind,
     "line_items[0][quantity]": "1",
     "line_items[0][price_data][currency]": "cad",
-    "line_items[0][price_data][unit_amount]": String(Math.round(commission * 100)),
-    "line_items[0][price_data][product_data][name]": fr ? `Commission ${BRAND_NAME} – réclamation ${claim.claimId}` : `${BRAND_NAME} commission – claim ${claim.claimId}`,
-    success_url: `${appUrl()}/my-claims?paid=1`,
-    cancel_url: `${appUrl()}/my-claims?paid=0`,
+    "line_items[0][price_data][unit_amount]": String(input.amountCents),
+    "line_items[0][price_data][product_data][name]": input.name,
+    success_url: input.successUrl,
+    cancel_url: input.cancelUrl,
     locale: fr ? "fr-CA" : "en",
   });
 

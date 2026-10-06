@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Search, Mail, CheckCircle, XCircle, DollarSign, Users, FileText, MessageSquare } from "lucide-react";
+import { Search, Mail, CheckCircle, XCircle, DollarSign, Users, FileText, MessageSquare, Plane } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +47,19 @@ interface User {
   createdAt: string;
 }
 
+interface FlightGroup {
+  flightKey: string;
+  flightNumber: string;
+  flightDate: string;
+  count: number;
+  statuses: Record<string, number>;
+  needsReview: number;
+  totalCompensation: number;
+  flightData: { delayMinutes?: number | null; status?: string; airlineName?: string } | null;
+  flightCase: { cause?: string | null; causeStatus?: string | null } | null;
+  claims: { id: number; claimId: string; passengerName: string; status: string; delayReason?: string | null }[];
+}
+
 interface Payment {
   id: number;
   claimId: string;
@@ -80,6 +93,12 @@ function AdminDashboardContent() {
     queryKey: ["/api/admin/users"],
     retry: false,
     enabled: isSeniorAdmin,
+  });
+
+  // Claims grouped by flight
+  const { data: flights = [], isLoading: flightsLoading } = useQuery<FlightGroup[]>({
+    queryKey: ["/api/admin/flights"],
+    retry: false,
   });
 
   // Fetch payments
@@ -244,11 +263,15 @@ function AdminDashboardContent() {
           </div>
         </div>
 
-        <Tabs defaultValue="claims" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4 win98-border">
+        <Tabs defaultValue={window.location.hash === "#flights" ? "flights" : "claims"} className="space-y-4">
+          <TabsList className="grid w-full grid-cols-5 win98-border">
             <TabsTrigger value="claims" className="win98-button">
               <FileText className="w-4 h-4 mr-2" />
               Claims
+            </TabsTrigger>
+            <TabsTrigger value="flights" className="win98-button">
+              <Plane className="w-4 h-4 mr-2" />
+              By flight
             </TabsTrigger>
             <TabsTrigger value="users" className="win98-button">
               <Users className="w-4 h-4 mr-2" />
@@ -377,6 +400,49 @@ function AdminDashboardContent() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          </TabsContent>
+
+          {/* By flight */}
+          <TabsContent value="flights" className="space-y-4">
+            <div className="win98-dialog p-4">
+              <h2 className="text-lg font-bold mb-1">Claims by flight</h2>
+              <p className="text-xs text-muted-foreground mb-4">One investigation per disrupted flight, reused for every passenger on it. Open any claim to record the cause.</p>
+              {flightsLoading ? (
+                <p className="text-sm">Loading...</p>
+              ) : flights.length === 0 ? (
+                <p className="text-sm">No claims yet</p>
+              ) : (
+                <div className="space-y-3">
+                  {flights.map((flight) => (
+                    <div key={flight.flightKey} className="win98-border p-3 text-sm">
+                      <div className="flex flex-wrap justify-between gap-2">
+                        <div>
+                          <strong>{flight.flightNumber}</strong> · {flight.flightDate} · {flight.flightData?.airlineName ?? ""}{" "}
+                          <Badge variant="outline">{flight.count} claim{flight.count > 1 ? "s" : ""}</Badge>
+                          {flight.needsReview > 0 && <Badge variant="secondary" className="ml-1">{flight.needsReview} need review</Badge>}
+                        </div>
+                        <div className="text-xs">
+                          {Object.entries(flight.statuses).map(([status, n]) => <span key={status} className="mr-2">{status}: {n}</span>)}
+                          · ${flight.totalCompensation.toFixed(0)} at stake
+                        </div>
+                      </div>
+                      <div className="text-xs mt-1">
+                        {flight.flightData?.delayMinutes != null && <span className="mr-3">Provider delay: {Math.round(flight.flightData.delayMinutes / 6) / 10}h ({flight.flightData.status})</span>}
+                        Investigation: <Badge variant={flight.flightCase?.causeStatus === "admissible" ? "default" : flight.flightCase?.causeStatus === "contested" ? "destructive" : "outline"}>{flight.flightCase?.causeStatus ?? "not started"}</Badge>
+                        {flight.flightCase?.cause && <span className="ml-2">{flight.flightCase.cause}</span>}
+                      </div>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {flight.claims.map((c) => (
+                          <Link key={c.id} href={`/admin/claims/${c.id}`} className="underline text-xs">
+                            {c.passengerName} ({c.status})
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </TabsContent>
 

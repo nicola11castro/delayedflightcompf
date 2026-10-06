@@ -331,7 +331,7 @@ export class EmailService {
   }
 
   private getAirlineClaimLetterTemplate(claim: Claim): EmailTemplate {
-    const reasonLabel = delayReasons.find((r) => r.value === claim.delayReason)?.label ?? claim.delayReason ?? "Not specified";
+    const reasonLabel = claim.delayReason === "unknown" ? "not communicated to the passenger (contrary to s. 13 APPR)" : delayReasons.find((r) => r.value === claim.delayReason)?.label ?? claim.delayReason ?? "Not specified";
     const amount = claim.compensationAmount ? `$${Number(claim.compensationAmount).toFixed(0)} CAD` : "the amount prescribed by the APPR";
     const body = [
       `To whom it may concern,`,

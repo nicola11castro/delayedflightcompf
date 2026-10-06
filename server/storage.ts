@@ -16,9 +16,12 @@ import {
   claimEvents,
   type ClaimEvent,
   type InsertClaimEvent,
+  flightCases,
+  type FlightCase,
+  flightKeyFor,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, ilike, or, gte, lte, isNull, gt } from "drizzle-orm";
+import { eq, desc, and, ilike, or, gte, lte, isNull, gt, lt, inArray, notInArray } from "drizzle-orm";
 
 /** Everything needed to insert a claim except the server-generated fields. */
 export type NewClaim = Omit<
@@ -57,9 +60,19 @@ export interface IStorage {
   getAllClaims(): Promise<Claim[]>;
   getClaimByStripeSession(sessionId: string): Promise<Claim | undefined>;
 
+  getClaimByKitSession(sessionId: string): Promise<Claim | undefined>;
+  getClaimsByFlight(flightNumber: string, flightDate: string): Promise<Claim[]>;
+  getClaimsWithOverdueAirlineDeadline(now: Date): Promise<Claim[]>;
+  getClaimsNearFilingLimit(from: Date, to: Date): Promise<Claim[]>;
+
   // Claim event log
   addClaimEvent(event: InsertClaimEvent): Promise<ClaimEvent>;
   getClaimEvents(claimId: number): Promise<ClaimEvent[]>;
+
+  // Flight cases (shared investigation per disrupted flight)
+  getFlightCase(flightNumber: string, flightDate: string): Promise<FlightCase | undefined>;
+  upsertFlightCase(flightNumber: string, flightDate: string, data: Partial<Pick<FlightCase, "cause" | "causeStatus" | "notes" | "updatedBy">>): Promise<FlightCase>;
+  getAllFlightCases(): Promise<FlightCase[]>;
 
   // FAQ operations
   getAllFaqs(): Promise<FaqItem[]>;
@@ -266,6 +279,41 @@ export class DatabaseStorage implements IStorage {
     return claim;
   }
 
+  async getClaimByKitSession(sessionId: string): Promise<Claim | undefined> {
+    const [claim] = await db.select().from(claims).where(eq(claims.kitStripeSessionId, sessionId));
+    return claim;
+  }
+
+  async getClaimsByFlight(flightNumber: string, flightDate: string): Promise<Claim[]> {
+    const key = flightKeyFor(flightNumber, flightDate);
+    const rows = await db.select().from(claims).where(eq(claims.flightDate, flightDate));
+    return rows.filter((row) => flightKeyFor(row.flightNumber, row.flightDate) === key);
+  }
+
+  async getClaimsWithOverdueAirlineDeadline(now: Date): Promise<Claim[]> {
+    return await db
+      .select()
+      .from(claims)
+      .where(
+        and(
+          lt(claims.airlineDeadlineAt, now),
+          isNull(claims.ctaFiledAt),
+          isNull(claims.smallClaimsFiledAt),
+          notInArray(claims.status, ["approved", "rejected", "paid"]),
+        ),
+      );
+  }
+
+  async getClaimsNearFilingLimit(from: Date, to: Date): Promise<Claim[]> {
+    // flightDate is text YYYY-MM-DD; the APPR filing limit is one year after the flight.
+    const rows = await db.select().from(claims).where(and(isNull(claims.airlineContactedAt), notInArray(claims.status, ["approved", "rejected", "paid"])));
+    return rows.filter((row) => {
+      const limit = new Date(`${row.flightDate}T00:00:00Z`);
+      limit.setUTCFullYear(limit.getUTCFullYear() + 1);
+      return limit >= from && limit <= to;
+    });
+  }
+
   // Claim event log
   async addClaimEvent(event: InsertClaimEvent): Promise<ClaimEvent> {
     const [created] = await db.insert(claimEvents).values(event).returning();
@@ -274,6 +322,30 @@ export class DatabaseStorage implements IStorage {
 
   async getClaimEvents(claimId: number): Promise<ClaimEvent[]> {
     return await db.select().from(claimEvents).where(eq(claimEvents.claimId, claimId)).orderBy(desc(claimEvents.createdAt));
+  }
+
+  // Flight cases
+  async getFlightCase(flightNumber: string, flightDate: string): Promise<FlightCase | undefined> {
+    const [row] = await db.select().from(flightCases).where(eq(flightCases.flightKey, flightKeyFor(flightNumber, flightDate)));
+    return row;
+  }
+
+  async upsertFlightCase(
+    flightNumber: string,
+    flightDate: string,
+    data: Partial<Pick<FlightCase, "cause" | "causeStatus" | "notes" | "updatedBy">>,
+  ): Promise<FlightCase> {
+    const flightKey = flightKeyFor(flightNumber, flightDate);
+    const [row] = await db
+      .insert(flightCases)
+      .values({ flightKey, flightNumber: flightNumber.toUpperCase().replace(/[\s-]+/g, ""), flightDate, ...data })
+      .onConflictDoUpdate({ target: flightCases.flightKey, set: { ...data, updatedAt: new Date() } })
+      .returning();
+    return row;
+  }
+
+  async getAllFlightCases(): Promise<FlightCase[]> {
+    return await db.select().from(flightCases).orderBy(desc(flightCases.updatedAt));
   }
 
   // FAQ operations

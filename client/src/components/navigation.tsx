@@ -18,9 +18,15 @@ export function Navigation() {
     { href: "#track", label: t("nav.track") },
     { href: "#calculator", label: t("nav.calculator") },
     { href: "#faq", label: t("nav.faq") },
+    { href: "/pricing", label: t("nav.pricing") },
   ];
 
   const scrollToSection = (href: string) => {
+    if (href.startsWith("/")) {
+      window.location.href = href;
+      setIsMobileMenuOpen(false);
+      return;
+    }
     const id = href.replace("#", "");
     const element = document.getElementById(id);
     if (element) {

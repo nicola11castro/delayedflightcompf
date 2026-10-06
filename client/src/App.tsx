@@ -13,6 +13,8 @@ import ResetPassword from "@/pages/reset-password";
 import MyClaims from "@/pages/my-claims";
 import Unsubscribed from "@/pages/unsubscribed";
 import SignPoa from "@/pages/sign-poa";
+import KitPage from "@/pages/kit";
+import Pricing from "@/pages/pricing";
 import AdminClaim from "@/pages/admin-claim";
 import AdminDashboard from "@/pages/admin-dashboard";
 import AdminSetup from "@/pages/admin-setup";
@@ -34,6 +36,8 @@ function Router() {
       <Route path="/my-claims" component={MyClaims} />
       <Route path="/unsubscribed" component={Unsubscribed} />
       <Route path="/sign/:claimId" component={SignPoa} />
+      <Route path="/kit/:claimId" component={KitPage} />
+      <Route path="/pricing" component={Pricing} />
       <Route path="/appr-guide" component={ApprGuide} />
       <Route path="/consent-demo" component={() => <ConsentDemo />} />
       <Route path="/" component={Home} />

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -32,6 +33,7 @@ interface SubmittedClaim {
   claimId: string;
   compensationAmount?: string | null;
   estimate?: { needsReview?: boolean };
+  poaSignUrl?: string | null;
 }
 
 export function ClaimForm() {

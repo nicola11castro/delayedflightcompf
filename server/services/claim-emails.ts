@@ -16,7 +16,9 @@ export type ClaimStage =
   | "rejected"
   | "paid"
   | "payment_link"
-  | "poa_signed";
+  | "poa_signed"
+  | "kit_ready"
+  | "kit_deadline_passed";
 
 interface StageCopy {
   subject: string;
@@ -142,6 +144,34 @@ function copyFor(claim: Claim, stage: ClaimStage, extras: { paymentLink?: string
             intro: `The airline paid your compensation directly. Here is our invoice for the agreed commission.`,
             body: [comp ? `Compensation received: ${comp}. 15% commission: ${fee}.` : ``, extras.paymentLink ? `Pay securely online with the button below.` : `Please send an Interac e-Transfer to ${SUPPORT_EMAIL} quoting your Claim ID.`],
             action: extras.paymentLink ? { label: `Pay ${fee}`, url: extras.paymentLink } : undefined,
+          };
+    case "kit_ready":
+      return fr
+        ? {
+            subject: `Votre trousse de réclamation – ${id}`,
+            intro: `Votre trousse est prête : lettre de mise en demeure, liste des preuves, compte à rebours et prochaines étapes.`,
+            body: [`Envoyez la lettre à la compagnie dès aujourd'hui et notez la date : elle a 30 jours pour répondre. Gardez votre dossier à jour en ligne; si elle refuse, nous pouvons préparer votre dossier pour les petites créances ou prendre le relais.`],
+            action: { label: "Ouvrir ma trousse", url: `${appUrl()}/kit/${encodeURIComponent(id)}` },
+          }
+        : {
+            subject: `Your claim kit – ${id}`,
+            intro: `Your kit is ready: demand letter, evidence checklist, countdown and next steps.`,
+            body: [`Send the letter to the airline today and note the date: it has 30 days to respond. Keep your online file up to date; if it refuses, we can prepare your small-claims file or take over.`],
+            action: { label: "Open my kit", url: `${appUrl()}/kit/${encodeURIComponent(id)}` },
+          };
+    case "kit_deadline_passed":
+      return fr
+        ? {
+            subject: `30 jours écoulés – que faire maintenant – ${id}`,
+            intro: `Les 30 jours accordés à la compagnie pour répondre sont écoulés.`,
+            body: [`Si elle a payé : bravo, dites-le-nous. Si elle a refusé ou n'a pas répondu, deux options : la plainte à l'Office des transports du Canada (gratuite, mais longue) ou la Division des petites créances (quelques mois). Nous pouvons préparer votre dossier ou prendre le relais.`],
+            action: { label: "Voir mes options", url: `${appUrl()}/kit/${encodeURIComponent(id)}` },
+          }
+        : {
+            subject: `30 days are up – what to do now – ${id}`,
+            intro: `The 30 days the airline had to respond have passed.`,
+            body: [`If it paid: great, let us know. If it refused or stayed silent, two options: a complaint to the Canadian Transportation Agency (free, but slow) or the Small Claims Division (a few months). We can prepare your file or take over.`],
+            action: { label: "See my options", url: `${appUrl()}/kit/${encodeURIComponent(id)}` },
           };
     case "poa_signed":
       return fr

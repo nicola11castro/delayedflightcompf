@@ -11,7 +11,7 @@ import { useLang, useDynamicT } from "@/i18n";
 import { apiRequest } from "@/lib/queryClient";
 import { getStatusIcon } from "@/components/claim-status";
 import type { Claim } from "@shared/schema";
-import { FolderOpen, MailWarning, Plus, PenTool, Download, CreditCard, CheckCircle } from "lucide-react";
+import { FolderOpen, MailWarning, Plus, PenTool, Download, CreditCard, CheckCircle, BookOpen, Scale } from "lucide-react";
 
 export default function MyClaims() {
   const { t, lang } = useLang();
@@ -116,7 +116,16 @@ export default function MyClaims() {
                           {claim.ctaFiledAt ? t("my.escalated") : `${t("my.airlineDeadline")} ${formatDate(claim.airlineDeadlineAt)}`}
                         </p>
                       )}
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-2 items-center">
+                        <Badge variant="secondary">{claim.serviceLevel === "kit" ? t("my.serviceKit") : t("my.serviceManaged")}</Badge>
+                        <Link href={`/kit/${encodeURIComponent(claim.claimId)}`}>
+                          <Button size="sm" variant="outline" className="win98-button text-xs"><BookOpen className="h-3 w-3 mr-1" />{claim.serviceLevel === "kit" ? t("my.kitOpen") : t("my.getKit")}</Button>
+                        </Link>
+                        {(claim.airlineRefusedAt || claim.smallClaimsFiledAt) && (
+                          <a href={`/api/claims/${encodeURIComponent(claim.claimId)}/small-claims.pdf`} target="_blank" rel="noreferrer">
+                            <Button size="sm" variant="outline" className="win98-button text-xs"><Scale className="h-3 w-3 mr-1" />{t("my.smallClaims")}</Button>
+                          </a>
+                        )}
                         {claim.poaSigned ? (
                           <>
                             <span className="text-xs flex items-center gap-1"><CheckCircle className="h-3 w-3 text-green-600" />{t("my.poaSigned")}</span>

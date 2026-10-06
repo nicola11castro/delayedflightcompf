@@ -109,6 +109,19 @@ The money figures never come from the AI model; they come from
 `shared/appr.ts`, which the calculator, the claim form, the APPR guide page and
 the server all share.
 
+## Two ways to be served
+
+- **Self-serve kit** (`/kit/:claimId`): eligibility summary, evidence checklist, bilingual demand letter (shown on screen and in a PDF), the passenger records the date they sent it, the 30-day countdown runs, and when the airline refuses the page offers the CTA, a Québec small-claims file (`/api/claims/:claimId/small-claims.pdf`: exhibit index, draft statement of claim, hearing script) or handing the file to us. `KIT_PRICE_CENTS` puts the kit behind a Stripe checkout; while unset the kit is free.
+- **Managed** (mandate): the passenger signs the Power of Attorney and the team runs the file from the admin claim page.
+
+Pricing amounts are deliberately configurable (`KIT_PRICE_CENTS`, `ESCALATED_COMMISSION_PCT`); `/pricing` shows "to be announced" until they are set.
+
+## Team operations
+
+- **By flight** tab in the admin dashboard groups every claim on the same flight; one investigation (cause, status, notes) is saved for the flight and appears on every passenger's claim page.
+- **Escalation path**: after a refusal the admin records a filing at the CTA or at Québec small claims; the passenger gets a bilingual email either way.
+- **Daily reminders** (`REMINDERS=false` to disable): a digest to `ADMIN_EMAILS` listing airline deadlines that passed without escalation and files approaching the one-year filing limit; kit passengers get a nudge when their own 30 days pass. Each reminder is logged on the claim and not repeated for a week.
+
 ## Data
 
 | Where                 | What                                                                                   |
@@ -119,6 +132,7 @@ the server all share.
 | `sessions`            | Login sessions                                                                         |
 | `auth_tokens`         | One-time tokens (hashed) for email verification and password reset                     |
 | `claim_events`        | Timeline per claim: notes, emails sent, status changes, letters, escalation, POA, payments |
+| `flight_cases`        | One shared investigation per disrupted flight (cause, status, notes)                     |
 | `faq_items`           | FAQ entries (the site shows built-in defaults when the table is empty)                 |
 | `uploads/`            | Uploaded documents on local disk, served to admins only                                |
 | `consent-records/`    | JSON copies of consent records (convenience; the database is the source of truth)      |

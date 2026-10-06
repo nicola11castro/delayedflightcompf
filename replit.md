@@ -176,6 +176,9 @@ Changelog:
 - October 6, 2026. Phase 3: flight-data provider adapter (AviationStack) with claim enrichment and delay verification flag for admins
 - October 6, 2026. Phase 3: "Check my flight" widget as the landing page's first step, prefilling the claim form
 - October 6, 2026. Phase 3: boarding-pass reading (OpenAI vision, on-device tesseract.js fallback) in the claim form
+- October 6, 2026. Phase 4: self-serve kit (bilingual demand letter, checklist, countdown, next steps) with configurable fee; service choice after submission
+- October 6, 2026. Phase 4: Québec small-claims file builder (exhibit index, draft claim, hearing script); escalation path CTA vs small claims
+- October 6, 2026. Phase 4: claims grouped by flight with shared investigation notes; daily deadline reminders to the team and kit passengers; bilingual pricing page
 ```
 
 ## User Preferences
