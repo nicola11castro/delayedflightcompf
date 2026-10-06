@@ -22,7 +22,7 @@ export function Hero() {
               <span className="block text-accent">15% Fee, No Win No Pay</span>
             </h1>
             <p className="text-sm text-foreground mb-6">
-              Delayed, cancelled, or denied boarding? Claim up to $700 compensation. 
+              Delayed, cancelled, or denied boarding? Claim up to $1,000 CAD compensation. 
               We only charge our 15% commission when you win.
             </p>
             
@@ -73,7 +73,7 @@ export function Hero() {
                   New User? Register here
                 </a>
                 <span>•</span>
-                <a href="/api/login" className="underline hover:text-primary">
+                <a href="/login" className="underline hover:text-primary">
                   Have an account? Login
                 </a>
               </div>
@@ -88,7 +88,7 @@ export function Hero() {
                 </div>
                 <h3 className="font-bold text-sm mb-2">Quick Claim Process</h3>
                 <p className="text-xs mb-3">
-                  Submit your claim in under 5 minutes. Our AI validates eligibility instantly.
+                  Submit your claim in under 5 minutes. We check your eligibility against the APPR rules instantly.
                 </p>
                 <div className="space-y-1 text-left text-xs">
                   <div className="flex items-center space-x-2">
@@ -97,7 +97,7 @@ export function Hero() {
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-2 h-2 bg-secondary" style={{border: '1px outset'}}></div>
-                    <span>AI eligibility validation</span>
+                    <span>Instant APPR eligibility check</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-2 h-2 bg-secondary" style={{border: '1px outset'}}></div>

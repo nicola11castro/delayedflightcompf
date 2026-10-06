@@ -39,7 +39,7 @@ export function FaqSection() {
     },
     onError: () => {
       toast({
-        title: "AI Assistant Unavailable",
+        title: "Assistant Unavailable",
         description: "Please try again later or contact our support team.",
         variant: "destructive",
       });
@@ -227,7 +227,7 @@ export function FaqSection() {
                 </div>
                 <div className="flex-1">
                   <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
-                    AI Assistant Response
+                    Assistant Response
                   </h4>
                   <p className="text-gray-700 dark:text-gray-300 mb-3">
                     {chatbotResponse.message}

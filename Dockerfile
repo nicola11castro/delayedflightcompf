@@ -1,41 +1,23 @@
-# Multi-stage build for production deployment
+# Build stage: needs dev dependencies (vite, esbuild, typescript)
 FROM node:20-alpine AS builder
-
 WORKDIR /app
-
-# Copy package files
 COPY package*.json ./
-COPY tsconfig.json ./
-
-# Install dependencies
-RUN npm ci --only=production
-
-# Copy source code
+RUN npm ci
 COPY . .
-
-# Build the application
 RUN npm run build
 
-# Production stage
+# Runtime stage: production dependencies only
 FROM node:20-alpine AS production
-
 WORKDIR /app
-
-# Copy package files and install production dependencies
+ENV NODE_ENV=production
 COPY package*.json ./
-RUN npm ci --only=production && npm cache clean --force
-
-# Copy built application from builder stage
+RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=builder /app/dist ./dist
-
-# Create uploads directory
+COPY drizzle.config.ts ./
+COPY shared ./shared
 RUN mkdir -p uploads consent-records consent-documents
 
-# Expose port
 EXPOSE 5000
-
-# Set environment
-ENV NODE_ENV=production
-
-# Start the application
+# The app reads PORT (defaults to 5000). Run `npm run db:push` once against
+# the database before the first start.
 CMD ["npm", "start"]

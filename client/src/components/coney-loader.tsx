@@ -203,7 +203,7 @@ export function ConeyLoaderAdvanced({ className, size = "md" }: ConeyLoaderProps
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         @keyframes eyeMovementLeft {
           0% { top: 20%; left: 20%; }
           25% { top: 10%; left: 30%; }

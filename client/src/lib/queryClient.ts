@@ -1,9 +1,17 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+/** Turns a failed response into an Error carrying the server's `message` when there is one. */
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    let message = text;
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed.message === "string") message = parsed.message;
+    } catch {
+      // not JSON
+    }
+    throw new Error(`${res.status}: ${message}`);
   }
 }
 

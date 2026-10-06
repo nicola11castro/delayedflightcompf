@@ -79,7 +79,7 @@ export function Footer() {
                 </button>
               </li>
               <li>
-                <Link href="#" className="hover:text-white transition-colors">
+                <Link href="/appr-guide" className="hover:text-white transition-colors">
                   APPR Rights Guide
                 </Link>
               </li>
@@ -126,7 +126,7 @@ export function Footer() {
         <div className="border-t border-gray-800 mt-12 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <p className="text-gray-400 text-sm">
-              © 2024 FlightClaim Pro. All rights reserved. GDPR & PIPEDA compliant.
+              © {new Date().getFullYear()} FlightClaim Pro. All rights reserved. GDPR & PIPEDA compliant.
             </p>
             <div className="flex space-x-6 mt-4 md:mt-0">
               <Link href="#" className="text-gray-400 hover:text-white transition-colors">

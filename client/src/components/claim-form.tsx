@@ -35,6 +35,7 @@ export function ClaimForm() {
   const [currentStep, setCurrentStep] = useState(1);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [showApprModal, setShowApprModal] = useState<boolean>(false);
+  const [submittedClaim, setSubmittedClaim] = useState<{ claimId: string; compensationAmount?: string | null } | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -97,16 +98,18 @@ export function ClaimForm() {
         body: formData,
       });
 
+      const body = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error('Failed to submit claim');
+        throw new Error(body.message || 'Failed to submit claim');
       }
 
-      return response.json();
+      return body as { claimId: string; compensationAmount?: string | null };
     },
-    onSuccess: () => {
+    onSuccess: (claim) => {
+      setSubmittedClaim(claim);
       toast({
         title: "Claim Submitted Successfully",
-        description: "We've received your claim and will begin processing it immediately.",
+        description: `Your Claim ID is ${claim.claimId}. Keep it to track your claim.`,
       });
       form.reset();
       setUploadedFiles([]);
@@ -180,9 +183,40 @@ export function ClaimForm() {
             Submit Your Compensation Claim
           </h2>
           <p className="text-xl text-gray-600 dark:text-gray-400">
-            Simple 3-step process. We validate eligibility using AI and handle everything for just 15%.
+            Simple 3-step process. We check your eligibility against the APPR rules and handle everything for just 15%.
           </p>
         </div>
+
+        {submittedClaim && (
+          <div className="win98-panel mb-6" role="status">
+            <h3 className="font-bold text-sm mb-2 flex items-center gap-2">
+              <Check className="h-4 w-4 text-secondary" />
+              Claim received
+            </h3>
+            <p className="text-xs mb-2">
+              Save your Claim ID. You need it to track progress, and we quote it in every email we send you.
+            </p>
+            <div className="win98-inset p-2 font-mono text-sm select-all">{submittedClaim.claimId}</div>
+            {submittedClaim.compensationAmount && (
+              <p className="text-xs mt-2">
+                Estimated APPR compensation: <strong>${Number(submittedClaim.compensationAmount).toFixed(0)} CAD</strong>{" "}
+                (our 15% is only charged if you win).
+              </p>
+            )}
+            <div className="flex gap-2 mt-3">
+              <Button
+                type="button"
+                className="btn-primary text-xs"
+                onClick={() => document.getElementById("track")?.scrollIntoView({ behavior: "smooth" })}
+              >
+                Track this claim
+              </Button>
+              <Button type="button" variant="outline" className="btn-outline text-xs" onClick={() => setSubmittedClaim(null)}>
+                Submit another claim
+              </Button>
+            </div>
+          </div>
+        )}
 
         <Card className="shadow-xl">
           <CardHeader>

@@ -1,65 +1,68 @@
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
 import { ConsentCheckboxes } from "@/components/consent-checkboxes";
-import { UserPlus, Mail, User } from "lucide-react";
+import { registerUserSchema, type PublicUser } from "@shared/schema";
+import { UserPlus, Mail, User, KeyRound } from "lucide-react";
 import { z } from "zod";
 
-const registerSchema = z.object({
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
-  email: z.string().email("Invalid email address"),
-  allConsentsAccepted: z.boolean().refine((val) => val === true, {
-    message: "You must accept all Terms of Service and agreements",
-  }),
-  emailMarketingConsent: z.boolean().optional().default(false),
-});
+const registerFormSchema = registerUserSchema
+  .extend({
+    confirmPassword: z.string().min(1, "Please confirm your password"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
 
-type RegisterFormData = z.infer<typeof registerSchema>;
+type RegisterFormData = z.infer<typeof registerFormSchema>;
 
 export default function Register() {
   const { toast } = useToast();
-  
+  const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
+
   const form = useForm<RegisterFormData>({
-    resolver: zodResolver(registerSchema),
+    resolver: zodResolver(registerFormSchema),
     defaultValues: {
       firstName: "",
       lastName: "",
       email: "",
+      password: "",
+      confirmPassword: "",
       allConsentsAccepted: false,
       emailMarketingConsent: false,
     },
   });
 
   const mutation = useMutation({
-    mutationFn: async (data: RegisterFormData) => {
+    mutationFn: async (data: RegisterFormData): Promise<{ user: PublicUser }> => {
+      const { confirmPassword: _confirm, ...payload } = data;
       const response = await fetch("/api/register", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
       });
-      
+      const body = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error("Registration failed");
+        throw new Error(body.message || "Registration failed");
       }
-      
-      return response.json();
+      return body;
     },
-    onSuccess: () => {
+    onSuccess: ({ user }) => {
+      queryClient.setQueryData(["/api/auth/user"], user);
       toast({
         title: "Registration Successful",
-        description: "Your account has been created. You can now submit claims.",
+        description: "Your account has been created and you are now signed in.",
       });
-      form.reset();
+      navigate("/");
     },
     onError: (error: Error) => {
       toast({
@@ -83,7 +86,7 @@ export default function Register() {
             Register for YUL Flight Claims
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Create your account to submit flight compensation claims
+            Create your account to submit and track flight compensation claims
           </p>
         </CardHeader>
         <CardContent>
@@ -103,7 +106,7 @@ export default function Register() {
                           First Name *
                         </FormLabel>
                         <FormControl>
-                          <Input {...field} className="win98-input" />
+                          <Input {...field} autoComplete="given-name" className="win98-input" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -120,7 +123,7 @@ export default function Register() {
                           Last Name *
                         </FormLabel>
                         <FormControl>
-                          <Input {...field} className="win98-input" />
+                          <Input {...field} autoComplete="family-name" className="win98-input" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -138,12 +141,49 @@ export default function Register() {
                         Email Address *
                       </FormLabel>
                       <FormControl>
-                        <Input {...field} type="email" className="win98-input" />
+                        <Input {...field} type="email" autoComplete="email" className="win98-input" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-1">
+                          <KeyRound className="h-3 w-3" />
+                          Password *
+                        </FormLabel>
+                        <FormControl>
+                          <Input {...field} type="password" autoComplete="new-password" className="win98-input" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="confirmPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-1">
+                          <KeyRound className="h-3 w-3" />
+                          Confirm Password *
+                        </FormLabel>
+                        <FormControl>
+                          <Input {...field} type="password" autoComplete="new-password" className="win98-input" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">At least 8 characters.</p>
               </div>
 
               {/* Consent Checkboxes */}
@@ -171,15 +211,15 @@ export default function Register() {
               <div className="text-center space-y-2">
                 <p className="text-xs text-muted-foreground">
                   Already have an account?{" "}
-                  <a href="/api/login" className="underline hover:text-primary">
+                  <Link href="/login" className="underline hover:text-primary">
                     Sign in here
-                  </a>
+                  </Link>
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Want to explore first?{" "}
-                  <a href="/" className="underline hover:text-primary">
+                  <Link href="/" className="underline hover:text-primary">
                     Go back to home
-                  </a>
+                  </Link>
                 </p>
               </div>
             </form>

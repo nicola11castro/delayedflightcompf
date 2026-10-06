@@ -1,5 +1,7 @@
 # FlightClaim Pro
 
+> Project notes carried over from Replit. See README.md for current setup and deployment instructions.
+
 ## Overview
 
 FlightClaim Pro is a full-stack web application for processing flight compensation claims with a transparent 15% commission structure. The application provides a streamlined interface for passengers to submit claims for flight delays, cancellations, and denied boarding incidents, while offering automated eligibility validation and commission calculations.
@@ -23,8 +25,8 @@ FlightClaim Pro is a full-stack web application for processing flight compensati
 - **Database ORM**: Drizzle ORM with type-safe schema definitions
 
 ### Database Strategy
-- **Primary Database**: PostgreSQL (configured for Neon serverless)
-- **Connection Pooling**: Neon serverless connection pool
+- **Primary Database**: Any PostgreSQL (local, Neon, Railway, Render, Supabase) via the standard `pg` driver
+- **Connection Pooling**: `pg` Pool (TLS on for hosted databases)
 - **Schema Management**: Drizzle Kit for migrations and schema management
 - **Type Safety**: Shared schema definitions between client and server
 
@@ -34,7 +36,7 @@ FlightClaim Pro is a full-stack web application for processing flight compensati
 - Multi-step form with file upload capabilities
 - Unique Claim ID generation using email + UUID (format: YUL-{hash}-{uuid})
 - Mandatory delay reason and duration fields for APPR compliance
-- Automated eligibility validation using OpenAI GPT-4o
+- Compensation computed from the shared APPR rules table (`shared/appr.ts`); OpenAI GPT-4o is an optional second-opinion pre-screen
 - Commission calculation engine with transparent fee structure
 - Status tracking with detailed history logging and claim ID lookup
 - Power of Attorney (POA) integration via DocuSign
@@ -99,12 +101,12 @@ FlightClaim Pro is a full-stack web application for processing flight compensati
 - **Package Manager**: npm with lockfile for dependency consistency
 - **Dev Server**: Concurrent Express server and Vite dev server
 - **Hot Reload**: Vite HMR for instant development feedback
-- **Error Overlay**: Replit-specific error modal integration
+- **Error Overlay**: Replit-specific plugins load only when REPL_ID is set
 
 ### Production Build
 - **Frontend**: Vite builds optimized static assets to `dist/public`
 - **Backend**: esbuild bundles server code to `dist/index.js`
-- **Deployment Target**: Autoscale deployment on Replit infrastructure
+- **Deployment Target**: Any Node host with PostgreSQL (Railway, Render, Docker); Replit still works
 - **Database**: Requires PostgreSQL connection via DATABASE_URL environment variable
 
 ### Environment Configuration
@@ -154,6 +156,15 @@ Changelog:
 - June 26, 2025. Added deployment files for custom domain hosting outside .replit.app ecosystem
 - June 26, 2025. Consolidated consent checkboxes into single comprehensive agreement with individual document links
 - June 26, 2025. Simplified consent process while maintaining full transparency and document access
+- October 6, 2026. Re-awakened outside Replit: email/password login (passport-local + scrypt) replaces Replit OpenID
+- October 6, 2026. Switched database driver to standard pg so any PostgreSQL works; PORT read from environment
+- October 6, 2026. Fixed claim submission (multipart booleans), single YUL Claim ID shared by database, consents and emails
+- October 6, 2026. Compensation now computed from shared APPR rules (carrier size x delay band); calculator aligned with the claim form and guide
+- October 6, 2026. Consent audit trail stored in the consent_records table (JSON copies kept as convenience)
+- October 6, 2026. Admin routes protected and wired: payments, status updates, airline letter, invoice, marketing campaign, role changes, document downloads
+- October 6, 2026. Public claim-status update and consent export endpoints locked down to admins
+- October 6, 2026. Build no longer imports Vite in production; Dockerfile, Render and Railway configs fixed; Vercel config removed
+- October 6, 2026. TypeScript check passes (was 25 errors); Replit dev banner removed from index.html
 ```
 
 ## User Preferences

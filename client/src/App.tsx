@@ -4,25 +4,25 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
-import { useAuth } from "@/hooks/useAuth";
 
 import { useState, useEffect } from "react";
 import Home from "@/pages/home";
-import Landing from "@/pages/landing";
+import Login from "@/pages/login";
 import AdminDashboard from "@/pages/admin-dashboard";
 import AdminSetup from "@/pages/admin-setup";
 import Register from "@/pages/register";
 import NotFound from "@/pages/not-found";
+import { ApprGuide } from "@/pages/appr-guide";
 import { ConsentDemo } from "@/components/consent-demo";
 
 function Router() {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   useEffect(() => {
-    // Show loading screen while the app initializes
+    // Short branded splash while the app initializes
     const timer = setTimeout(() => {
       setIsInitialLoading(false);
-    }, 3000); // 3 seconds of loading
+    }, 1200);
 
     return () => clearTimeout(timer);
   }, []);
@@ -50,10 +50,12 @@ function Router() {
   return (
     <Switch>
       <Route path="/admin/setup" component={AdminSetup} />
+      <Route path="/admin" component={AdminDashboard} />
+      <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
+      <Route path="/appr-guide" component={ApprGuide} />
       <Route path="/consent-demo" component={() => <ConsentDemo />} />
       <Route path="/" component={Home} />
-      <Route path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -67,7 +69,7 @@ function App() {
           <div className="min-h-screen bg-background text-foreground">
             <Toaster />
             <Router />
-            
+
             {/* Add CSS for Côney animations */}
             <style dangerouslySetInnerHTML={{
               __html: `
@@ -78,7 +80,7 @@ function App() {
                   75% { top: 35%; left: 35%; }
                   100% { top: 25%; left: 25%; }
                 }
-                
+
                 @keyframes eyeMovementRight {
                   0% { top: 25%; left: 45%; }
                   25% { top: 35%; left: 35%; }
@@ -86,7 +88,7 @@ function App() {
                   75% { top: 15%; left: 35%; }
                   100% { top: 25%; left: 45%; }
                 }
-                
+
                 @keyframes coneyBounce {
                   0%, 100% { transform: perspective(100px) rotateX(5deg) translateY(0); }
                   50% { transform: perspective(100px) rotateX(5deg) translateY(-3px); }

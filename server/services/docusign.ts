@@ -61,14 +61,15 @@ export class DocuSignService {
     }
 
     const data = await response.json();
-    this.accessToken = data.access_token;
-    
+    const token = String(data.access_token);
+    this.accessToken = token;
+
     // Set token expiration handling
     setTimeout(() => {
       this.accessToken = null;
     }, (data.expires_in - 300) * 1000); // Refresh 5 minutes before expiry
 
-    return this.accessToken;
+    return token;
   }
 
   private async makeRequest(endpoint: string, options: RequestInit = {}): Promise<any> {
@@ -148,7 +149,7 @@ export class DocuSignService {
           authenticationMethod: 'none',
           email: request.passengerEmail,
           recipientId: '1',
-          returnUrl: `${process.env.REPLIT_DOMAINS?.split(',')[0] || 'http://localhost:5000'}/api/docusign/callback`,
+          returnUrl: `${process.env.APP_URL || 'http://localhost:5000'}/api/docusign/callback`,
           userName: request.passengerName,
         }),
       });

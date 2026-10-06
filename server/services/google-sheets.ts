@@ -1,3 +1,5 @@
+import { createSign } from 'crypto';
+
 interface GoogleSheetsConfig {
   spreadsheetId: string;
   credentials: {
@@ -43,25 +45,43 @@ export class GoogleSheetsService {
     };
   }
 
+  isConfigured(): boolean {
+    return Boolean(
+      this.config.spreadsheetId && this.config.credentials.client_email && this.config.credentials.private_key,
+    );
+  }
+
+  /** Service-account JWT exchanged for a short-lived OAuth token (no extra dependency). */
   private async getAccessToken(): Promise<string> {
-    // Simple JWT creation for service account authentication
-    const header = {
-      alg: 'RS256',
-      typ: 'JWT',
-    };
-
+    const base64url = (input: string | Buffer) => Buffer.from(input).toString('base64url');
     const now = Math.floor(Date.now() / 1000);
-    const payload = {
-      iss: this.config.credentials.client_email,
-      scope: 'https://www.googleapis.com/auth/spreadsheets',
-      aud: 'https://oauth2.googleapis.com/token',
-      exp: now + 3600,
-      iat: now,
-    };
+    const header = base64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+    const payload = base64url(
+      JSON.stringify({
+        iss: this.config.credentials.client_email,
+        scope: 'https://www.googleapis.com/auth/spreadsheets',
+        aud: 'https://oauth2.googleapis.com/token',
+        exp: now + 3600,
+        iat: now,
+      }),
+    );
+    const signature = createSign('RSA-SHA256')
+      .update(`${header}.${payload}`)
+      .sign(this.config.credentials.private_key, 'base64url');
 
-    // Note: In production, use a proper JWT library like 'jsonwebtoken'
-    // For now, we'll return a placeholder that would need proper implementation
-    return 'placeholder_token';
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        assertion: `${header}.${payload}.${signature}`,
+      }),
+    });
+    if (!response.ok) {
+      throw new Error(`Google auth failed: ${response.status} ${await response.text()}`);
+    }
+    const data = (await response.json()) as { access_token: string };
+    return data.access_token;
   }
 
   async exportClaimsToSheet(claims: any[]): Promise<string> {

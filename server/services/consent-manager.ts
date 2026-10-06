@@ -1,6 +1,8 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { format } from 'date-fns';
+import { storage } from '../storage';
+import type { ConsentRecord as StoredConsentRecord } from '@shared/schema';
 
 export interface ConsentRecord {
   consentType: string;
@@ -23,21 +25,43 @@ export interface ConsentDocument {
   category: 'registration' | 'claim' | 'marketing';
 }
 
+/**
+ * Consent audit trail.
+ *
+ * Records are stored in the `consent_records` table (source of truth, survives
+ * redeploys). A JSON copy named ConsentType_FirstName_LastName_Email_ClaimID_Timestamp.json
+ * is also written to consent-records/ when the filesystem allows it; set
+ * CONSENT_FILES=false to disable the copies on hosts with ephemeral disks.
+ */
 export class ConsentManager {
-  private consentDocsPath = './consent-documents';
-  private consentRecordsPath = './consent-records';
+  private consentDocsPath = path.resolve(process.env.CONSENT_DOCS_DIR || 'consent-documents');
+  private consentRecordsPath = path.resolve(process.env.CONSENT_RECORDS_DIR || 'consent-records');
+  private filesEnabled = process.env.CONSENT_FILES !== 'false';
 
-  constructor() {
-    this.ensureDirectories();
-  }
-
-  private async ensureDirectories() {
+  private async ensureDirectories(): Promise<boolean> {
     try {
       await fs.mkdir(this.consentDocsPath, { recursive: true });
       await fs.mkdir(this.consentRecordsPath, { recursive: true });
+      return true;
     } catch (error) {
-      console.error('Error creating consent directories:', error);
+      console.warn('Consent directories are not writable; JSON copies disabled.', error);
+      this.filesEnabled = false;
+      return false;
     }
+  }
+
+  private toConsentRecord(row: StoredConsentRecord): ConsentRecord {
+    return {
+      consentType: row.consentType,
+      userEmail: row.userEmail,
+      userName: row.userName,
+      claimId: row.claimId ?? undefined,
+      timestamp: row.recordedAt.toISOString(),
+      ipAddress: row.ipAddress ?? undefined,
+      userAgent: row.userAgent ?? undefined,
+      documentVersion: row.documentVersion,
+      agreed: row.agreed,
+    };
   }
 
   // Generate standardized consent documents
@@ -85,8 +109,14 @@ export class ConsentManager {
       }
     ];
 
-    for (const doc of documents) {
-      await this.saveConsentDocument(doc);
+    if (await this.ensureDirectories()) {
+      for (const doc of documents) {
+        try {
+          await this.saveConsentDocument(doc);
+        } catch (error) {
+          console.warn(`Could not write consent document ${doc.type}:`, error);
+        }
+      }
     }
 
     return documents;
@@ -97,17 +127,26 @@ export class ConsentManager {
     const filename = `${document.type}_v${document.version}.md`;
     const filepath = path.join(this.consentDocsPath, filename);
     
-    const content = `# ${document.title}
+    const body = `# ${document.title}
 Version: ${document.version}
 Category: ${document.category}
 Mandatory: ${document.mandatory}
-Generated: ${new Date().toISOString()}
+Generated: __GENERATED__
 
 ---
 
 ${document.content}`;
 
-    await fs.writeFile(filepath, content, 'utf-8');
+    // Only rewrite when the legal text changed, so the files do not churn on every start.
+    const stripGenerated = (text: string) => text.replace(/^Generated: .*$/m, 'Generated: __GENERATED__');
+    try {
+      const existing = await fs.readFile(filepath, 'utf-8');
+      if (stripGenerated(existing) === body) return;
+    } catch {
+      // file does not exist yet
+    }
+
+    await fs.writeFile(filepath, body.replace('__GENERATED__', new Date().toISOString()), 'utf-8');
   }
 
   // Record user consent with detailed tracking
@@ -125,33 +164,42 @@ ${document.content}`;
       timestamp
     ].join('_') + '.json';
 
-    const filepath = path.join(this.consentRecordsPath, filename);
-    
-    const fullRecord = {
-      ...record,
+    const stored = await storage.createConsentRecord({
+      consentType: record.consentType,
+      userEmail: record.userEmail.toLowerCase(),
+      userName: record.userName,
+      claimId: record.claimId ?? null,
+      documentVersion: record.documentVersion,
+      agreed: record.agreed,
+      ipAddress: record.ipAddress ?? null,
+      userAgent: record.userAgent ?? null,
       filename,
-      recordedAt: new Date().toISOString(),
-      documentPath: path.join(this.consentDocsPath, `${record.consentType}_v${record.documentVersion}.md`)
-    };
+    });
 
-    await fs.writeFile(filepath, JSON.stringify(fullRecord, null, 2), 'utf-8');
-    
+    if (this.filesEnabled) {
+      const fullRecord = {
+        ...record,
+        id: stored.id,
+        filename,
+        recordedAt: stored.recordedAt.toISOString(),
+        documentPath: path.join('consent-documents', `${record.consentType}_v${record.documentVersion}.md`)
+      };
+      try {
+        await fs.mkdir(this.consentRecordsPath, { recursive: true });
+        await fs.writeFile(path.join(this.consentRecordsPath, filename), JSON.stringify(fullRecord, null, 2), 'utf-8');
+      } catch (error) {
+        console.warn('Consent record saved to database but JSON copy failed:', error);
+      }
+    }
+
     return filename;
   }
 
   // Generate audit trail for a user
   async generateUserAuditTrail(userEmail: string): Promise<ConsentRecord[]> {
     try {
-      const files = await fs.readdir(this.consentRecordsPath);
-      const userFiles = files.filter(file => file.includes(userEmail.replace(/[^a-zA-Z0-9@.-]/g, '_')));
-      
-      const records: ConsentRecord[] = [];
-      for (const file of userFiles) {
-        const content = await fs.readFile(path.join(this.consentRecordsPath, file), 'utf-8');
-        records.push(JSON.parse(content));
-      }
-      
-      return records.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      const rows = await storage.getConsentRecordsByEmail(userEmail);
+      return rows.map(row => this.toConsentRecord(row));
     } catch (error) {
       console.error('Error generating audit trail:', error);
       return [];
@@ -161,21 +209,8 @@ ${document.content}`;
   // Export all consent records for compliance
   async exportConsentRecords(startDate?: Date, endDate?: Date): Promise<ConsentRecord[]> {
     try {
-      const files = await fs.readdir(this.consentRecordsPath);
-      const records: ConsentRecord[] = [];
-      
-      for (const file of files) {
-        const content = await fs.readFile(path.join(this.consentRecordsPath, file), 'utf-8');
-        const record = JSON.parse(content);
-        
-        const recordDate = new Date(record.timestamp);
-        if (startDate && recordDate < startDate) continue;
-        if (endDate && recordDate > endDate) continue;
-        
-        records.push(record);
-      }
-      
-      return records;
+      const rows = await storage.getConsentRecords(startDate, endDate);
+      return rows.map(row => this.toConsentRecord(row));
     } catch (error) {
       console.error('Error exporting consent records:', error);
       return [];

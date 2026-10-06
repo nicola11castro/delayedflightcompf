@@ -1,51 +1,33 @@
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, Mail } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { apiRequest } from "@/lib/queryClient";
+import type { PublicUser } from "@shared/schema";
+import { Shield, LogIn, UserPlus, LayoutDashboard } from "lucide-react";
 
 export default function AdminSetup() {
-  const [email, setEmail] = useState("pncastrodorion@gmail.com");
+  const { user, isLoading, isAuthenticated, isAdmin } = useAuth();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
 
   const setupAdminMutation = useMutation({
-    mutationFn: async (email: string) => {
-      const response = await fetch("/api/setup-admin", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email }),
-      });
-      
-      if (!response.ok) {
-        throw new Error("Failed to setup admin");
-      }
-      
+    mutationFn: async (): Promise<{ message: string; user: PublicUser }> => {
+      const response = await apiRequest("POST", "/api/setup-admin");
       return response.json();
     },
-    onSuccess: () => {
-      toast({
-        title: "Admin Setup Complete",
-        description: "Senior admin user has been created successfully",
-      });
+    onSuccess: (data) => {
+      queryClient.setQueryData(["/api/auth/user"], data.user);
+      toast({ title: "Admin Setup Complete", description: data.message });
+      navigate("/admin");
     },
     onError: (error: Error) => {
-      toast({
-        title: "Setup Failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Setup Failed", description: error.message, variant: "destructive" });
     },
   });
-
-  const handleSetup = () => {
-    if (email.trim()) {
-      setupAdminMutation.mutate(email.trim());
-    }
-  };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -60,35 +42,64 @@ export default function AdminSetup() {
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Admin Email</label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter admin email"
-                className="pl-10 win98-input"
-              />
-            </div>
-          </div>
-
-          <Button
-            onClick={handleSetup}
-            disabled={!email.trim() || setupAdminMutation.isPending}
-            className="w-full btn-primary"
-          >
-            {setupAdminMutation.isPending ? "Setting up..." : "Setup Senior Admin"}
-          </Button>
+          {isLoading ? (
+            <p className="text-sm text-center">Checking your session...</p>
+          ) : !isAuthenticated ? (
+            <>
+              <div className="text-xs bg-muted/50 p-3 rounded border win98-inset">
+                Admin access is tied to the email addresses listed in <code>ADMIN_EMAILS</code> on the server.
+                Register or sign in with one of those emails and you will become a senior admin automatically.
+              </div>
+              <div className="flex gap-2">
+                <Link href="/login" className="flex-1">
+                  <Button className="w-full btn-primary">
+                    <LogIn className="h-4 w-4 mr-2" />
+                    Sign In
+                  </Button>
+                </Link>
+                <Link href="/register" className="flex-1">
+                  <Button variant="outline" className="w-full btn-outline">
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Register
+                  </Button>
+                </Link>
+              </div>
+            </>
+          ) : isAdmin ? (
+            <>
+              <div className="text-xs bg-muted/50 p-3 rounded border win98-inset">
+                <strong>{user?.email}</strong> already has <strong>{user?.role}</strong> access.
+              </div>
+              <Link href="/admin">
+                <Button className="w-full btn-primary">
+                  <LayoutDashboard className="h-4 w-4 mr-2" />
+                  Open Admin Dashboard
+                </Button>
+              </Link>
+            </>
+          ) : (
+            <>
+              <div className="text-xs bg-muted/50 p-3 rounded border win98-inset">
+                Signed in as <strong>{user?.email}</strong>. If this email is listed in <code>ADMIN_EMAILS</code>,
+                the button below grants senior admin access.
+              </div>
+              <Button
+                onClick={() => setupAdminMutation.mutate()}
+                disabled={setupAdminMutation.isPending}
+                className="w-full btn-primary"
+              >
+                {setupAdminMutation.isPending ? "Setting up..." : "Grant Senior Admin Access"}
+              </Button>
+            </>
+          )}
 
           <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded border">
-            <strong>Note:</strong> This will create a senior admin account with full system access including:
+            <strong>Senior admin can:</strong>
             <ul className="mt-1 list-disc list-inside space-y-1">
               <li>View all claims and user data</li>
+              <li>Update claim status and email airlines</li>
               <li>Export data to Google Sheets</li>
               <li>Manage user roles and permissions</li>
-              <li>Access admin dashboard</li>
             </ul>
           </div>
         </CardContent>

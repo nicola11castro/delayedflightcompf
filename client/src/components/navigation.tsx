@@ -72,7 +72,7 @@ export function Navigation() {
                   </Button>
                 </Link>
                 
-                <a href="/api/login">
+                <a href="/login">
                   <Button variant="ghost" size="sm" className="win98-button text-xs">
                     <LogIn className="h-3 w-3 mr-1" />
                     Login
@@ -159,7 +159,7 @@ export function Navigation() {
                       Register
                     </Button>
                   </Link>
-                  <a href="/api/login">
+                  <a href="/login">
                     <Button variant="ghost" size="sm" className="win98-button text-xs w-full justify-start">
                       <LogIn className="h-3 w-3 mr-1" />
                       Login

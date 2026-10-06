@@ -2,8 +2,7 @@ import { pgTable, text, serial, integer, boolean, timestamp, jsonb, decimal, var
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Session storage table.
-// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
+// Session storage table used by express-session (connect-pg-simple).
 export const sessions = pgTable(
   "sessions",
   {
@@ -14,11 +13,12 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User storage table.
-// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
+// User accounts. Passwords are stored as scrypt hashes; users imported from the
+// old Replit login have no hash until they register a password.
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().notNull(),
   email: varchar("email").unique(),
+  passwordHash: varchar("password_hash"),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
@@ -31,6 +31,12 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+export const USER_ROLES = ["user", "junior_admin", "senior_admin"] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+
+export const CLAIM_STATUSES = ["submitted", "under-review", "approved", "rejected", "paid"] as const;
+export type ClaimStatus = (typeof CLAIM_STATUSES)[number];
 
 export const claims = pgTable("claims", {
   id: serial("id").primaryKey(),
@@ -61,6 +67,7 @@ export const claims = pgTable("claims", {
     isEligible: boolean;
     confidence: number;
     reason: string;
+    source?: "rules" | "ai";
   }>(),
   statusHistory: jsonb("status_history").$type<Array<{
     status: string;
@@ -81,6 +88,27 @@ export const faqItems = pgTable("faq_items", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Consent audit trail. The database is the source of truth; the JSON files in
+// consent-records/ are a convenience copy and are lost on hosts with
+// ephemeral disks.
+export const consentRecords = pgTable(
+  "consent_records",
+  {
+    id: serial("id").primaryKey(),
+    consentType: varchar("consent_type", { length: 50 }).notNull(),
+    userEmail: varchar("user_email").notNull(),
+    userName: varchar("user_name").notNull(),
+    claimId: varchar("claim_id", { length: 50 }),
+    documentVersion: varchar("document_version", { length: 20 }).notNull(),
+    agreed: boolean("agreed").notNull().default(true),
+    ipAddress: varchar("ip_address"),
+    userAgent: text("user_agent"),
+    filename: varchar("filename"),
+    recordedAt: timestamp("recorded_at").defaultNow().notNull(),
+  },
+  (table) => [index("IDX_consent_user_email").on(table.userEmail)],
+);
+
 export const insertClaimSchema = createInsertSchema(claims).omit({
   id: true,
   claimId: true,
@@ -100,12 +128,12 @@ export const insertClaimSchema = createInsertSchema(claims).omit({
 }).partial({
   emailMarketingConsentClaim: true,
   poaRequested: true,
-  notes: true,
   mealVouchers: true,
   poaDocumentUrl: true,
   boardingPassUrl: true,
   documentsUrls: true,
   status: true,
+  allClaimConsentsAccepted: true,
 });
 
 export const insertFaqSchema = createInsertSchema(faqItems).omit({
@@ -113,9 +141,36 @@ export const insertFaqSchema = createInsertSchema(faqItems).omit({
   createdAt: true,
 });
 
+export const insertConsentRecordSchema = createInsertSchema(consentRecords).omit({
+  id: true,
+  recordedAt: true,
+});
+
+// Auth payloads shared by the register/login pages and the server.
+export const registerUserSchema = z.object({
+  firstName: z.string().trim().min(1, "First name is required"),
+  lastName: z.string().trim().min(1, "Last name is required"),
+  email: z.string().trim().toLowerCase().email("Invalid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  allConsentsAccepted: z.boolean().refine((val) => val === true, {
+    message: "You must accept all Terms of Service and agreements",
+  }),
+  emailMarketingConsent: z.boolean().optional().default(false),
+});
+
+export const loginSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Invalid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+export type PublicUser = Omit<User, "passwordHash">;
 export type InsertClaim = z.infer<typeof insertClaimSchema>;
 export type Claim = typeof claims.$inferSelect;
 export type FaqItem = typeof faqItems.$inferSelect;
 export type InsertFaqItem = z.infer<typeof insertFaqSchema>;
+export type ConsentRecord = typeof consentRecords.$inferSelect;
+export type InsertConsentRecord = z.infer<typeof insertConsentRecordSchema>;
+export type RegisterUserInput = z.infer<typeof registerUserSchema>;
+export type LoginInput = z.infer<typeof loginSchema>;
