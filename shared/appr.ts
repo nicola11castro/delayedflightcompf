@@ -6,12 +6,18 @@
  * guide page and the server-side compensation estimate all agree.
  */
 
+export type ReasonStatus = "admissible" | "inadmissible" | "unknown";
+
 export interface DelayReason {
   value: string;
   label: string;
   /** true = within airline control and not safety-related (compensable) */
   valid: boolean;
+  /** "unknown": the passenger does not know; the team verifies with the airline */
+  status?: ReasonStatus;
 }
+
+export const UNKNOWN_REASON = "unknown";
 
 export const delayReasons: DelayReason[] = [
   { value: "maintenance_non_safety", label: "Maintenance Issues (Non-Safety)", valid: true },
@@ -30,22 +36,42 @@ export const delayReasons: DelayReason[] = [
   { value: "government_delays", label: "Government or Regulatory Delays", valid: false },
   { value: "medical_emergencies", label: "Medical Emergencies", valid: false },
   { value: "cyberattacks", label: "Cyberattacks", valid: false },
+  { value: UNKNOWN_REASON, label: "I don't know / the airline didn't say", valid: true, status: "unknown" },
 ];
 
+export type IssueType = "delayed" | "cancelled" | "denied-boarding" | "missed-connection";
+export const ISSUE_TYPES: IssueType[] = ["delayed", "cancelled", "denied-boarding", "missed-connection"];
+
 export type CarrierSize = "large" | "small";
-export type DelayBand = "3-6" | "6-9" | "9+";
+export type DelayBand = "0-3" | "3-6" | "6-9" | "9+";
 
 export const DELAY_BANDS: { value: DelayBand; label: string; minHours: number }[] = [
+  { value: "0-3", label: "Less than 3 hours", minHours: 0 },
   { value: "3-6", label: "3–6 hours", minHours: 3 },
   { value: "6-9", label: "6–9 hours", minHours: 6 },
   { value: "9+", label: "9+ hours", minHours: 9 },
 ];
 
-/** CAD amounts set by the APPR for large (2M+ passengers/yr) and small carriers. */
+/** Delay bands that apply to an issue type: delays need 3h+; denied boarding pays from the first hour. */
+export function bandsForIssue(issueType?: string | null) {
+  return issueType === "denied-boarding" ? DELAY_BANDS : DELAY_BANDS.filter((band) => band.value !== "0-3");
+}
+
+/** CAD amounts set by the APPR for delays/cancellations: large (2M+ passengers/yr) vs small carriers. */
 export const COMPENSATION_TABLE: Record<CarrierSize, Record<DelayBand, number>> = {
-  large: { "3-6": 400, "6-9": 700, "9+": 1000 },
-  small: { "3-6": 125, "6-9": 250, "9+": 500 },
+  large: { "0-3": 0, "3-6": 400, "6-9": 700, "9+": 1000 },
+  small: { "0-3": 0, "3-6": 125, "6-9": 250, "9+": 500 },
 };
+
+/** Denied boarding (APPR s.20): same amounts for every carrier, by arrival delay. */
+export const DENIED_BOARDING_TABLE: Record<DelayBand, number> = {
+  "0-3": 900,
+  "3-6": 900,
+  "6-9": 1800,
+  "9+": 2400,
+};
+
+export const MAX_COMPENSATION = DENIED_BOARDING_TABLE["9+"];
 
 export const COMMISSION_RATE = 0.15;
 
@@ -119,6 +145,13 @@ export function getDelayReasonValidity(reason: string): boolean {
   return delayReason?.valid ?? false;
 }
 
+export function getReasonStatus(reason?: string | null): ReasonStatus {
+  if (!reason) return "unknown";
+  const delayReason = delayReasons.find((dr) => dr.value === reason);
+  if (!delayReason) return "unknown";
+  return delayReason.status ?? (delayReason.valid ? "admissible" : "inadmissible");
+}
+
 export function delayBandFromHours(hours: number): DelayBand | null {
   if (hours >= 9) return "9+";
   if (hours >= 6) return "6-9";
@@ -141,6 +174,10 @@ export function parseMealVoucherAmount(input?: string | null): number {
 
 export interface CompensationEstimate {
   eligible: boolean;
+  /** true when the stated reason is unknown or inadmissible and the team must verify with the airline */
+  needsReview: boolean;
+  reasonStatus: ReasonStatus;
+  issueType: IssueType;
   carrierSize: CarrierSize;
   /** false when we could not identify the airline and assumed a large carrier */
   carrierKnown: boolean;
@@ -155,6 +192,7 @@ export interface CompensationEstimate {
 }
 
 export interface CompensationInput {
+  issueType?: string | null;
   carrierSize?: CarrierSize;
   flightNumber?: string | null;
   airlineName?: string | null;
@@ -175,25 +213,37 @@ export function estimateCompensation(input: CompensationInput): CompensationEsti
       ? getAirlineByName(input.airlineName)
       : undefined;
 
+  const issueType: IssueType = ISSUE_TYPES.includes(input.issueType as IssueType) ? (input.issueType as IssueType) : "delayed";
   const carrierKnown = !!input.carrierSize || !!airline;
   const carrierSize: CarrierSize = input.carrierSize ?? airline?.category ?? "large";
   const band = isDelayBand(input.delayDuration) ? input.delayDuration : null;
-  const reasonValid = input.delayReason ? getDelayReasonValidity(input.delayReason) : true;
+  const reasonStatus = getReasonStatus(input.delayReason);
+  const isDeniedBoarding = issueType === "denied-boarding";
 
   let reason: string;
   let baseAmount = 0;
-  if (!band) {
-    reason = "Delays under 3 hours are not compensable under the APPR.";
-  } else if (!reasonValid) {
-    reason = "This delay reason is outside airline control or safety-related, so no APPR compensation applies.";
+  if (!band || (!isDeniedBoarding && band === "0-3")) {
+    reason = isDeniedBoarding
+      ? "Select how late you arrived at your destination."
+      : "Delays under 3 hours at arrival are not compensable under the APPR.";
+  } else if (reasonStatus === "inadmissible") {
+    reason =
+      "The reason the airline gave is outside its control or safety-related, so no APPR compensation applies unless our team can show otherwise.";
   } else {
-    baseAmount = COMPENSATION_TABLE[carrierSize][band];
+    baseAmount = isDeniedBoarding ? DENIED_BOARDING_TABLE[band] : COMPENSATION_TABLE[carrierSize][band];
     const carrierLabel = carrierSize === "large" ? "large carrier" : "small carrier";
-    reason = airline
-      ? `${airline.name} is a ${carrierLabel}; a ${band} hour delay within airline control is compensable.`
-      : carrierKnown
-        ? `A ${band} hour delay on a ${carrierLabel} within airline control is compensable.`
-        : `Airline not recognised from the flight number; estimate assumes a large carrier for a ${band} hour delay.`;
+    if (isDeniedBoarding) {
+      reason = `Denied boarding with a ${band} hour arrival delay pays $${baseAmount} on any carrier.`;
+    } else if (airline) {
+      reason = `${airline.name} is a ${carrierLabel}; a ${band} hour delay within airline control is compensable.`;
+    } else if (carrierKnown) {
+      reason = `A ${band} hour delay on a ${carrierLabel} within airline control is compensable.`;
+    } else {
+      reason = `Airline not recognised from the flight number; estimate assumes a large carrier for a ${band} hour delay.`;
+    }
+    if (reasonStatus === "unknown") {
+      reason += " The cause of the disruption still has to be confirmed with the airline.";
+    }
   }
 
   const mealVoucherDeduction = baseAmount > 0 ? parseMealVoucherAmount(input.mealVouchers) : 0;
@@ -203,6 +253,9 @@ export function estimateCompensation(input: CompensationInput): CompensationEsti
 
   return {
     eligible: baseAmount > 0,
+    needsReview: reasonStatus !== "admissible",
+    reasonStatus,
+    issueType,
     carrierSize,
     carrierKnown,
     airlineName: airline?.name,

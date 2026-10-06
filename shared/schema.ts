@@ -28,9 +28,26 @@ export const users = pgTable("users", {
   privacyAccepted: boolean("privacy_accepted").default(false),
   dataRetentionAccepted: boolean("data_retention_accepted").default(false),
   emailMarketingConsent: boolean("email_marketing_consent").default(false),
+  emailVerified: boolean("email_verified").default(false),
+  preferredLanguage: varchar("preferred_language", { length: 5 }).default("en"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+// One-time tokens for password resets and email verification (hash stored, never the token).
+export const authTokens = pgTable(
+  "auth_tokens",
+  {
+    id: serial("id").primaryKey(),
+    userId: varchar("user_id").notNull(),
+    type: varchar("type", { length: 30 }).notNull(), // password_reset | email_verify
+    tokenHash: varchar("token_hash", { length: 128 }).notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    usedAt: timestamp("used_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [index("IDX_auth_tokens_hash").on(table.tokenHash)],
+);
 
 export const USER_ROLES = ["user", "junior_admin", "senior_admin"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
@@ -41,6 +58,8 @@ export type ClaimStatus = (typeof CLAIM_STATUSES)[number];
 export const claims = pgTable("claims", {
   id: serial("id").primaryKey(),
   claimId: varchar("claim_id", { length: 50 }).notNull().unique(),
+  userId: varchar("user_id"), // set when the passenger was signed in
+  language: varchar("language", { length: 5 }).default("en"),
   passengerName: text("passenger_name").notNull(),
   email: text("email").notNull(),
   flightNumber: text("flight_number").notNull(),
@@ -68,6 +87,7 @@ export const claims = pgTable("claims", {
     confidence: number;
     reason: string;
     source?: "rules" | "ai";
+    needsReview?: boolean;
   }>(),
   statusHistory: jsonb("status_history").$type<Array<{
     status: string;
@@ -134,6 +154,8 @@ export const insertClaimSchema = createInsertSchema(claims).omit({
   documentsUrls: true,
   status: true,
   allClaimConsentsAccepted: true,
+  userId: true,
+  language: true,
 });
 
 export const insertFaqSchema = createInsertSchema(faqItems).omit({
@@ -156,6 +178,16 @@ export const registerUserSchema = z.object({
     message: "You must accept all Terms of Service and agreements",
   }),
   emailMarketingConsent: z.boolean().optional().default(false),
+  preferredLanguage: z.enum(["en", "fr"]).optional().default("en"),
+});
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Invalid email address"),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(10),
+  password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
 export const loginSchema = z.object({
@@ -172,5 +204,6 @@ export type FaqItem = typeof faqItems.$inferSelect;
 export type InsertFaqItem = z.infer<typeof insertFaqSchema>;
 export type ConsentRecord = typeof consentRecords.$inferSelect;
 export type InsertConsentRecord = z.infer<typeof insertConsentRecordSchema>;
+export type AuthToken = typeof authTokens.$inferSelect;
 export type RegisterUserInput = z.infer<typeof registerUserSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;

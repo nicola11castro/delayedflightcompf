@@ -7,14 +7,16 @@ import { ClaimStatus } from "@/components/claim-status";
 import { FaqSection } from "@/components/faq-section";
 import { Footer } from "@/components/footer";
 import { ClippyAssistant } from "@/components/clippy-assistant";
+import { useLang } from "@/i18n";
 
 export default function Home() {
+  const { t } = useLang();
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Navigation />
       <Hero />
       <TrustIndicators />
-      
+
       <section id="calculator" className="py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <CommissionCalculator />
@@ -30,10 +32,8 @@ export default function Home() {
       <section id="track" className="py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-foreground mb-4">Track Your Claim</h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              Track your claim progress using your unique Claim ID. Get real-time updates on your compensation request.
-            </p>
+            <h2 className="text-2xl font-bold text-foreground mb-4">{t("status.sectionTitle")}</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">{t("status.sectionLead")}</p>
           </div>
           <ClaimStatus />
         </div>
@@ -44,7 +44,7 @@ export default function Home() {
           <FaqSection />
         </div>
       </section>
-      
+
       <Footer />
       <ClippyAssistant />
     </div>

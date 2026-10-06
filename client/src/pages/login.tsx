@@ -9,9 +9,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { loginSchema, type LoginInput, type PublicUser } from "@shared/schema";
 import { LogIn, Mail, KeyRound } from "lucide-react";
+import { useLang } from "@/i18n";
 
 export default function Login() {
   const { toast } = useToast();
+  const { t } = useLang();
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
 
@@ -30,18 +32,18 @@ export default function Login() {
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(body.message || "Login failed");
+        throw new Error(body.message || t("auth.loginFailed"));
       }
       return body;
     },
     onSuccess: ({ user }) => {
       queryClient.setQueryData(["/api/auth/user"], user);
-      toast({ title: "Welcome back", description: `Signed in as ${user.email}` });
+      toast({ title: t("auth.welcomeBack"), description: t("auth.signedInAs", { email: user.email ?? "" }) });
       const isAdmin = user.role === "senior_admin" || user.role === "junior_admin";
       navigate(isAdmin ? "/admin" : "/");
     },
     onError: (error: Error) => {
-      toast({ title: "Login failed", description: error.message, variant: "destructive" });
+      toast({ title: t("auth.loginFailed"), description: error.message, variant: "destructive" });
     },
   });
 
@@ -51,9 +53,9 @@ export default function Login() {
         <CardHeader className="text-center">
           <CardTitle className="flex items-center justify-center gap-2">
             <LogIn className="h-6 w-6" />
-            Sign in to FlightClaim Pro
+            {t("auth.loginTitle")}
           </CardTitle>
-          <p className="text-sm text-muted-foreground">Track your claims and manage your account</p>
+          <p className="text-sm text-muted-foreground">{t("auth.loginLead")}</p>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -65,7 +67,7 @@ export default function Login() {
                   <FormItem>
                     <FormLabel className="flex items-center gap-1">
                       <Mail className="h-3 w-3" />
-                      Email Address
+                      {t("auth.email")}
                     </FormLabel>
                     <FormControl>
                       <Input {...field} type="email" autoComplete="email" className="win98-input" />
@@ -82,7 +84,7 @@ export default function Login() {
                   <FormItem>
                     <FormLabel className="flex items-center gap-1">
                       <KeyRound className="h-3 w-3" />
-                      Password
+                      {t("auth.password")}
                     </FormLabel>
                     <FormControl>
                       <Input {...field} type="password" autoComplete="current-password" className="win98-input" />
@@ -93,20 +95,19 @@ export default function Login() {
               />
 
               <Button type="submit" className="w-full btn-primary" disabled={mutation.isPending}>
-                {mutation.isPending ? "Signing in..." : "Sign In"}
+                {mutation.isPending ? t("auth.signingIn") : t("auth.signIn")}
               </Button>
 
               <div className="text-center space-y-2">
                 <p className="text-xs text-muted-foreground">
-                  New here?{" "}
-                  <Link href="/register" className="underline hover:text-primary">
-                    Create an account
-                  </Link>
+                  <Link href="/forgot-password" className="underline hover:text-primary">{t("auth.forgot")}</Link>
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  <Link href="/" className="underline hover:text-primary">
-                    Back to home
-                  </Link>
+                  {t("auth.newHere")}{" "}
+                  <Link href="/register" className="underline hover:text-primary">{t("auth.createAccount")}</Link>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  <Link href="/" className="underline hover:text-primary">{t("auth.backHome")}</Link>
                 </p>
               </div>
             </form>

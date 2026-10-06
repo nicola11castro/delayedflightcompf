@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { X, MessageCircle, HelpCircle, AlertTriangle, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getDelayReasonValidity, calculateCompensation } from "@/data/airlines";
+import { getReasonStatus, calculateCompensation } from "@shared/appr";
+import { useLang } from "@/i18n";
+import type { TranslationKey } from "@/i18n/en";
 
 interface ClippyMessage {
   id: string;
-  text: string;
   context: string;
   trigger?: string;
   icon?: 'info' | 'warning' | 'success';
@@ -14,75 +15,64 @@ interface ClippyMessage {
 const clippyMessages: ClippyMessage[] = [
   {
     id: "welcome",
-    text: "Salut! I'm Côney, your Montreal construction cone assistant. I help navigate flight compensation like I navigate Montreal traffic - with style!",
     context: "general",
   },
   {
     id: "claim-start",
-    text: "Great! You're starting a claim. Pro tip: Have your boarding pass, flight confirmation, and any delay notifications ready for faster processing.",
     context: "claim-form",
     trigger: "step-1"
   },
   {
     id: "documentation",
-    text: "Document everything! Upload clear photos of your boarding pass, delay announcements, meal vouchers, and hotel receipts if provided by the airline.",
     context: "claim-form",
     trigger: "step-2"
   },
   {
     id: "commission-info",
-    text: "Our transparent 15% commission is only charged when we WIN your case. No success = No fee. You keep 85% of all compensation!",
     context: "calculator"
   },
   {
     id: "poa-explanation",
-    text: "The Power of Attorney is standard practice and allows us to negotiate directly with airlines. It's secure and can be revoked anytime!",
     context: "claim-form",
     trigger: "step-3"
   },
   {
     id: "delay-tip",
-    text: "Flight wisdom: EU flights delayed 3+ hours qualify for €250-€600 compensation. US domestic delays over 3 hours may qualify for $300-$700!",
     context: "general"
   },
   {
     id: "tracking-help",
-    text: "Lost your claim details? No worries! Use your Claim ID or email to track progress. We'll also send regular updates to your inbox.",
     context: "track"
   },
   {
     id: "faq-tip",
-    text: "Got questions? I've helped thousands of passengers get compensation. Check our FAQ or ask me directly - I know all the airline tricks!",
     context: "faq"
   },
   {
     id: "easter-egg",
-    text: "Eh! You found me! I'm Côney the cone - Montreal's favorite traffic director, now helping with flight delays. Construction season never ends!",
     context: "general"
   },
   {
     id: "delay-reason-valid",
-    text: "Good news! This delay reason typically qualifies for compensation. Airlines are responsible for crew issues, maintenance, and operational problems.",
     context: "smart-tip"
   },
   {
     id: "delay-reason-invalid",
-    text: "Heads up! This delay reason is usually considered 'extraordinary circumstances' - airlines typically aren't required to pay compensation for weather, ATC, or security issues.",
     context: "smart-tip"
   },
   {
     id: "airline-large",
-    text: "You're dealing with a large airline! They typically offer higher compensation rates ($400-$1000) but may have more complex claim processes.",
     context: "smart-tip"
   },
   {
     id: "airline-small",
-    text: "This is a smaller airline with lower compensation rates ($125-$500), but they often have simpler claim processes and faster response times.",
     context: "smart-tip"
   }
 ];
 
 export function ClippyAssistant() {
+  const { t } = useLang();
+  const text = (message: ClippyMessage) => t(`clippy.${message.id}` as TranslationKey);
   const [isVisible, setIsVisible] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [currentMessage, setCurrentMessage] = useState<ClippyMessage>(clippyMessages[0]);
@@ -192,7 +182,7 @@ export function ClippyAssistant() {
     
     // Check delay reason validity
     if (formData.delayReason) {
-      const isValid = getDelayReasonValidity(formData.delayReason);
+      const isValid = getReasonStatus(formData.delayReason) !== "inadmissible";
       const reasonTip = clippyMessages.find(msg => 
         msg.id === (isValid ? 'delay-reason-valid' : 'delay-reason-invalid')
       );
@@ -247,7 +237,7 @@ export function ClippyAssistant() {
       <Button
         onClick={toggleClippy}
         className="fixed bottom-4 right-4 z-50 win98-button text-xs"
-        title="Show Assistant"
+        title={t("clippy.show")}
       >
         <HelpCircle className="w-4 h-4" />
       </Button>
@@ -265,7 +255,7 @@ export function ClippyAssistant() {
         <div 
           onClick={toggleClippy}
           className="w-16 h-16 win98-panel cursor-pointer hover:brightness-110 transition-all duration-200 flex items-center justify-center clippy-character"
-          title="Click for help, eh!"
+          title={t("clippy.clickHelp")}
         >
           {/* Orange Construction Cone Character */}
           <div className="relative">
@@ -316,7 +306,7 @@ export function ClippyAssistant() {
                 {currentMessage.icon === 'warning' && <AlertTriangle className="w-3 h-3 mr-1 text-destructive" />}
                 {currentMessage.icon === 'success' && <CheckCircle className="w-3 h-3 mr-1 text-secondary" />}
                 {!currentMessage.icon && <span className="mr-1">🚧</span>}
-                Côney Assistant
+                {t("clippy.name")}
               </h4>
               <Button
                 onClick={closeClippy}
@@ -329,7 +319,7 @@ export function ClippyAssistant() {
             </div>
             
             <p className="text-xs text-foreground mb-3 leading-relaxed">
-              {currentMessage.text}
+              {text(currentMessage)}
             </p>
             
             <div className="flex justify-between items-center">
@@ -339,7 +329,7 @@ export function ClippyAssistant() {
                 size="sm"
                 className="text-xs py-1 px-2"
               >
-                More Tips
+                {t("clippy.moreTips")}
               </Button>
               <span className="text-xs text-muted-foreground">
                 {smartTips.length > 0 ? 

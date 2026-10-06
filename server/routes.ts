@@ -7,7 +7,9 @@ import multer from "multer";
 import { z } from "zod";
 import { storage } from "./storage";
 import { insertClaimSchema, CLAIM_STATUSES, USER_ROLES, type Claim } from "@shared/schema";
-import { estimateCompensation, getDelayReasonValidity, isDelayBand, type CompensationEstimate } from "@shared/appr";
+import { estimateCompensation, getReasonStatus, isDelayBand, bandsForIssue, ISSUE_TYPES, type CompensationEstimate } from "@shared/appr";
+import { BILLING_EMAIL } from "@shared/brand";
+import { verifyEmailSignature } from "./config";
 import { validateClaimEligibility, handleChatbotQuery, generateCommissionExplanation } from "./services/openai";
 import { airtableService } from "./services/airtable";
 import { docusignService } from "./services/docusign";
@@ -84,8 +86,9 @@ const claimSubmissionSchema = insertClaimSchema
     departureAirport: z.string().trim().min(1, "Departure airport is required"),
     arrivalAirport: z.string().trim().min(1, "Arrival airport is required"),
     issueType: z.enum(["delayed", "cancelled", "denied-boarding", "missed-connection"]),
-    delayDuration: z.string().refine(isDelayBand, { message: "Delay duration must be 3-6, 6-9 or 9+ hours" }),
+    delayDuration: z.string().refine(isDelayBand, { message: "Delay duration must be one of the listed ranges" }),
     delayReason: z.string().min(1, "Delay reason is required"),
+    language: z.enum(["en", "fr"]).optional(),
     mealVouchers: z.string().trim().max(100).optional(),
     poaConsent: formBoolean.refine((value) => value === true, {
       message: "Power of Attorney consent is required to proceed with claim",
@@ -93,9 +96,14 @@ const claimSubmissionSchema = insertClaimSchema
     poaRequested: formBoolean.optional(),
     emailMarketingConsentClaim: formBoolean.optional(),
     allClaimConsentsAccepted: formBoolean.optional(),
+  })
+  .refine((data) => bandsForIssue(data.issueType).some((band) => band.value === data.delayDuration), {
+    message: "Delays under 3 hours are only compensable for denied boarding",
+    path: ["delayDuration"],
   });
 
 const calculatorSchema = z.object({
+  issueType: z.enum(ISSUE_TYPES as [string, ...string[]]).optional(),
   carrierSize: z.enum(["large", "small"]).optional(),
   airline: z.string().trim().max(100).optional(),
   delayDuration: z.string(),
@@ -228,25 +236,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const data = parsed.data;
 
-      if (!getDelayReasonValidity(data.delayReason)) {
-        await removeFiles(files);
-        return res.status(400).json({
-          message: "This delay reason is not eligible for compensation under the APPR, so we cannot take the claim.",
-          code: "NOT_ADMISSIBLE",
-        });
-      }
+      // Inadmissible or unknown reasons are accepted and flagged for the team to verify with the airline.
+      const reasonStatus = getReasonStatus(data.delayReason);
 
       const claimId = generateClaimId(data.email);
       const estimate = estimateCompensation({
+        issueType: data.issueType,
         flightNumber: data.flightNumber,
         delayDuration: data.delayDuration,
         delayReason: data.delayReason,
         mealVouchers: data.mealVouchers,
       });
 
+      const { language, ...claimFields } = data;
       const claim = await storage.createClaim(
         {
-          ...data,
+          ...claimFields,
+          userId: req.user?.id ?? null,
+          language: language ?? "en",
           poaRequested: data.poaRequested ?? false,
           emailMarketingConsentClaim: data.emailMarketingConsentClaim ?? false,
           allClaimConsentsAccepted: data.poaConsent,
@@ -255,9 +262,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           commissionAmount: estimate.eligible ? estimate.commissionAmount.toFixed(2) : null,
           eligibilityValidation: {
             isEligible: estimate.eligible,
-            confidence: estimate.carrierKnown ? 0.9 : 0.6,
+            confidence: reasonStatus === "admissible" ? (estimate.carrierKnown ? 0.9 : 0.6) : 0.3,
             reason: estimate.reason,
             source: "rules",
+            needsReview: estimate.needsReview,
           },
         },
         claimId,
@@ -327,8 +335,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/my-claims", isAuthenticated, async (req, res) => {
     try {
-      const email = req.user?.email;
-      res.json(email ? await storage.getClaimsByEmail(email) : []);
+      res.json(await storage.getClaimsForUser(req.user!.id, req.user!.email));
     } catch (error) {
       console.error("My claims error:", error);
       res.status(500).json({ message: "Failed to retrieve your claims" });
@@ -345,6 +352,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     const input = parsed.data;
     const estimate = estimateCompensation({
+      issueType: input.issueType,
       carrierSize: input.carrierSize,
       airlineName: input.airline,
       delayDuration: input.delayDuration,
@@ -534,7 +542,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         commissionAmount: Number(claim.commissionAmount),
         paymentInstructions:
           process.env.PAYMENT_INSTRUCTIONS ||
-          "Please send the commission amount by Interac e-Transfer to billing@yulclaims.com, quoting your Claim ID.",
+          `Please send the commission amount by Interac e-Transfer to ${BILLING_EMAIL}, quoting your Claim ID.`,
       });
       await storage.updateClaimStatus(claim.id, claim.status, `Commission invoice emailed by ${req.user?.email ?? "admin"}`);
       res.json({ message: `Invoice emailed to ${claim.email}` });
@@ -642,6 +650,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error exporting to Google Sheets:", error);
       res.status(500).json({ message: "Failed to export to Google Sheets" });
+    }
+  });
+
+  // One-click unsubscribe (link signed with SESSION_SECRET, so it works without login).
+  app.get("/api/unsubscribe", async (req, res) => {
+    const email = typeof req.query.email === "string" ? req.query.email.toLowerCase() : "";
+    const sig = typeof req.query.sig === "string" ? req.query.sig : "";
+    try {
+      if (!email || !sig || !verifyEmailSignature(email, sig)) {
+        return res.redirect("/unsubscribed?ok=0");
+      }
+      const user = await storage.getUserByEmail(email);
+      if (user) await storage.updateUser(user.id, { emailMarketingConsent: false });
+      await consentManager.recordConsent({
+        consentType: "emailMarketing",
+        userEmail: email,
+        userName: user ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || email : email,
+        timestamp: new Date().toISOString(),
+        ipAddress: req.ip,
+        userAgent: req.get("User-Agent"),
+        documentVersion: "1.0",
+        agreed: false,
+      });
+      res.redirect("/unsubscribed?ok=1");
+    } catch (error) {
+      console.error("Unsubscribe error:", error);
+      res.redirect("/unsubscribed?ok=0");
     }
   });
 

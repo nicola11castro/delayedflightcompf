@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { voiceSearchService } from "@/lib/voice-search";
 import type { FaqItem } from "@shared/schema";
+import { useLang } from "@/i18n";
 
 interface ChatbotResponse {
   message: string;
@@ -22,6 +23,7 @@ export function FaqSection() {
   const [showChatbot, setShowChatbot] = useState(false);
   const [chatbotResponse, setChatbotResponse] = useState<ChatbotResponse | null>(null);
   const { toast } = useToast();
+  const { t } = useLang();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const { data: faqs, isLoading } = useQuery<FaqItem[]>({
@@ -39,8 +41,8 @@ export function FaqSection() {
     },
     onError: () => {
       toast({
-        title: "Assistant Unavailable",
-        description: "Please try again later or contact our support team.",
+        title: t("faq.unavailable"),
+        description: t("faq.unavailableDesc"),
         variant: "destructive",
       });
     },
@@ -61,8 +63,8 @@ export function FaqSection() {
     },
     onError: () => {
       toast({
-        title: "Voice Search Failed",
-        description: "Please try typing your question instead.",
+        title: t("faq.voiceFailed"),
+        description: t("faq.voiceFailedDesc"),
         variant: "destructive",
       });
     },
@@ -71,8 +73,8 @@ export function FaqSection() {
   const handleVoiceSearch = async () => {
     if (!voiceSearchService.isSupportedBrowser()) {
       toast({
-        title: "Voice Search Not Supported",
-        description: "Please use a modern browser with voice recognition support.",
+        title: t("faq.voiceUnsupported"),
+        description: t("faq.voiceUnsupportedDesc"),
         variant: "destructive",
       });
       return;
@@ -91,8 +93,8 @@ export function FaqSection() {
       voiceSearchMutation.mutate(result.transcript);
     } catch (error) {
       toast({
-        title: "Voice Recognition Error",
-        description: "Please try again or type your question.",
+        title: t("faq.voiceError"),
+        description: t("faq.voiceErrorDesc"),
         variant: "destructive",
       });
     } finally {
@@ -114,8 +116,8 @@ export function FaqSection() {
   const defaultFaqs: FaqItem[] = [
     {
       id: 1,
-      question: "How does the 15% commission work?",
-      answer: "We only charge our 15% commission if your claim is successful. If you receive $700 in compensation, we deduct $105 (15%) and transfer $595 to you. If your claim is unsuccessful, you pay nothing.",
+      question: t("faq.q1"),
+      answer: t("faq.a1"),
       category: "commission",
       order: 1,
       isActive: true,
@@ -123,8 +125,8 @@ export function FaqSection() {
     },
     {
       id: 2,
-      question: "What's the difference between POA and regular claims?",
-      answer: "With a Power of Attorney (POA), we collect compensation directly from the airline, deduct our 15% commission, and transfer the rest to you immediately. Without POA, the airline pays you directly, and we invoice you for the 15% commission afterward.",
+      question: t("faq.q2"),
+      answer: t("faq.a2"),
       category: "process",
       order: 2,
       isActive: true,
@@ -132,8 +134,8 @@ export function FaqSection() {
     },
     {
       id: 3,
-      question: "Are there any hidden fees besides the 15%?",
-      answer: "No hidden fees. Our 15% commission is the only charge, and it's only collected if your claim succeeds. There are no upfront costs, processing fees, or additional charges.",
+      question: t("faq.q3"),
+      answer: t("faq.a3"),
       category: "fees",
       order: 3,
       isActive: true,
@@ -141,8 +143,8 @@ export function FaqSection() {
     },
     {
       id: 4,
-      question: "How long does the commission process take?",
-      answer: "With POA: Commission is deducted automatically and remaining funds transferred within 1-2 business days of receiving airline payment. Without POA: We send a commission invoice within 24 hours of your compensation receipt.",
+      question: t("faq.q4"),
+      answer: t("faq.a4"),
       category: "timing",
       order: 4,
       isActive: true,
@@ -150,7 +152,7 @@ export function FaqSection() {
     },
   ];
 
-  const displayFaqs = faqs || defaultFaqs;
+  const displayFaqs = faqs && faqs.length > 0 ? faqs : defaultFaqs;
   const filteredFaqs = searchQuery
     ? displayFaqs.filter(faq =>
         faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -159,15 +161,11 @@ export function FaqSection() {
     : displayFaqs;
 
   return (
-    <section id="faq" className="py-20 bg-white dark:bg-dark-surface">
+    <section id="faq" className="py-12 bg-background">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h2 className="font-inter font-bold text-3xl lg:text-4xl text-gray-900 dark:text-white mb-4">
-            Frequently Asked Questions
-          </h2>
-          <p className="text-xl text-gray-600 dark:text-gray-400 mb-6">
-            Common questions about our 15% commission structure
-          </p>
+          <h2 className="font-bold text-2xl mb-4">{t("faq.title")}</h2>
+          <p className="text-sm text-muted-foreground mb-6">{t("faq.lead")}</p>
           
           {/* Search Input with Voice */}
           <div className="max-w-md mx-auto mb-8">
@@ -175,7 +173,7 @@ export function FaqSection() {
               <Input
                 ref={searchInputRef}
                 type="text"
-                placeholder="Search FAQs or ask a question..."
+                placeholder={t("faq.placeholder")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleChatbotQuery()}
@@ -210,7 +208,7 @@ export function FaqSection() {
             {isVoiceRecording && (
               <div className="mt-2 text-center">
                 <Badge variant="secondary" className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-                  🎤 Listening... Click mic to stop
+                  {t("faq.listening")}
                 </Badge>
               </div>
             )}
@@ -226,10 +224,10 @@ export function FaqSection() {
                   <Bot className="w-4 h-4 text-white" />
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
-                    Assistant Response
+                  <h4 className="font-semibold mb-2">
+                    {t("faq.assistant")}
                   </h4>
-                  <p className="text-gray-700 dark:text-gray-300 mb-3">
+                  <p className="mb-3">
                     {chatbotResponse.message}
                   </p>
                   <Button
@@ -237,7 +235,7 @@ export function FaqSection() {
                     size="sm"
                     onClick={() => setShowChatbot(false)}
                   >
-                    Close
+                    {t("faq.close")}
                   </Button>
                 </div>
               </div>
@@ -249,7 +247,7 @@ export function FaqSection() {
         {isLoading ? (
           <div className="text-center py-8">
             <div className="spinner mx-auto mb-4"></div>
-            <p className="text-gray-600 dark:text-gray-400">Loading FAQs...</p>
+            <p className="text-muted-foreground">{t("faq.loading")}</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -260,7 +258,7 @@ export function FaqSection() {
                   className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 h-auto"
                   onClick={() => toggleFaq(faq.id)}
                 >
-                  <span className="font-medium text-gray-900 dark:text-white text-left">
+                  <span className="font-medium text-left">
                     {faq.question}
                   </span>
                   <ChevronDown 
@@ -271,7 +269,7 @@ export function FaqSection() {
                 </Button>
                 {expandedFaq === faq.id && (
                   <CardContent className="px-6 pb-4 pt-0">
-                    <p className="text-gray-600 dark:text-gray-400">
+                    <p className="text-muted-foreground">
                       {faq.answer}
                     </p>
                   </CardContent>
@@ -281,8 +279,8 @@ export function FaqSection() {
 
             {filteredFaqs.length === 0 && searchQuery && (
               <div className="text-center py-8">
-                <p className="text-gray-600 dark:text-gray-400 mb-4">
-                  No FAQs found for "{searchQuery}". Try asking our FAQ Assistant!
+                <p className="text-muted-foreground mb-4">
+                  {t("faq.noResults", { q: searchQuery })}
                 </p>
                 <Button 
                   onClick={handleChatbotQuery}
@@ -292,12 +290,12 @@ export function FaqSection() {
                   {chatbotMutation.isPending ? (
                     <>
                       <div className="spinner mr-2"></div>
-                      Processing...
+                      {t("faq.processing")}
                     </>
                   ) : (
                     <>
                       <MessageCircle className="mr-2 h-4 w-4" />
-                      FAQ Assistant
+                      {t("faq.askButton")}
                     </>
                   )}
                 </Button>
@@ -307,14 +305,12 @@ export function FaqSection() {
         )}
 
         {/* AI Chatbot Integration */}
-        <div className="mt-12 bg-gradient-to-r from-primary/10 to-blue-600/10 rounded-2xl p-8 text-center">
-          <h3 className="font-inter font-semibold text-xl text-gray-900 dark:text-white mb-4">
+        <div className="mt-12 win98-panel p-8 text-center">
+          <h3 className="font-semibold text-lg mb-4">
             <Bot className="inline w-6 h-6 text-primary mr-2" />
-            Still have questions about our commission?
+            {t("faq.stillTitle")}
           </h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
-            Our FAQ Assistant can answer specific questions about fees, processing times, and commission calculations.
-          </p>
+          <p className="text-muted-foreground mb-6">{t("faq.stillLead")}</p>
           <Button 
             onClick={() => {
               if (searchInputRef.current) {
@@ -324,7 +320,7 @@ export function FaqSection() {
             className="btn-primary"
           >
             <MessageCircle className="mr-2 h-4 w-4" />
-            FAQ Assistant
+            {t("faq.askButton")}
           </Button>
         </div>
       </div>

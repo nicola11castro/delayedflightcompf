@@ -240,7 +240,7 @@ ${document.content}`;
   // Content generators for each consent type
   private getTermsContent(): string {
     return `## 1. Service Description
-YUL Flight Delay Compensation helps passengers claim APPR compensation for flight delays at Montreal-Trudeau (YUL) and other Canadian airports.
+DelayedFlightComp helps passengers claim APPR compensation for flight delays at Montreal-Trudeau (YUL) and other Canadian airports.
 
 ## 2. Commission Structure
 We charge a 15% commission on successful claims only. No win, no fee.
@@ -294,7 +294,7 @@ You may request deletion of personal information (name, email), but claim-relate
 APPR regulations require airlines and service providers to maintain claim records for audit purposes.
 
 ## 4. Your Rights
-Contact support@yulclaims.com to request personal data deletion or access your retained information.
+Contact support@delayedflightcomp.com to request personal data deletion or access your retained information.
 
 ## 5. Legal Compliance
 This policy ensures compliance with Canadian federal regulations and Quebec provincial law.
@@ -305,7 +305,7 @@ By checking this box, you acknowledge and consent to our data retention practice
 
   private getPOAContent(): string {
     return `## 1. Authorization Scope
-You authorize YUL Flight Delay Compensation to act on your behalf for APPR compensation claims related to your specified flight delay.
+You authorize DelayedFlightComp to act on your behalf for APPR compensation claims related to your specified flight delay.
 
 ## 2. Authorized Actions
 We may submit claims, negotiate with airlines, communicate with regulators, and collect compensation on your behalf.
@@ -314,7 +314,7 @@ We may submit claims, negotiate with airlines, communicate with regulators, and 
 We will deduct our 15% commission from any compensation received and remit the balance (85%) to you.
 
 ## 4. Revocation
-You may revoke this authorization with 7 days written notice to support@yulclaims.com.
+You may revoke this authorization with 7 days written notice to support@delayedflightcomp.com.
 
 ## 5. Legal Compliance
 This agreement complies with Quebec's Civil Code and Consumer Protection Act requirements.
@@ -334,7 +334,7 @@ We may send you updates about flight compensation rights, new services, and rele
 Marketing emails will be sent no more than once per week, with seasonal updates as appropriate.
 
 ## 3. Opt-Out
-You may unsubscribe at any time using the link in our emails or by contacting support@yulclaims.com.
+You may unsubscribe at any time using the link in our emails or by contacting support@delayedflightcomp.com.
 
 ## 4. Content
 Communications will focus on passenger rights education and service updates relevant to flight compensation.

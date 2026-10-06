@@ -10,13 +10,22 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
-import { randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from "crypto";
+import { createHash, randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import type { Express, RequestHandler } from "express";
 import { pool } from "./db";
 import { storage } from "./storage";
 import { consentManager } from "./services/consent-manager";
-import { loginSchema, registerUserSchema, type PublicUser, type User } from "@shared/schema";
+import { emailService } from "./services/email";
+import { appUrl } from "./config";
+import {
+  forgotPasswordSchema,
+  loginSchema,
+  registerUserSchema,
+  resetPasswordSchema,
+  type PublicUser,
+  type User,
+} from "@shared/schema";
 
 const scrypt = promisify(scryptCallback) as (password: string, salt: string, keylen: number) => Promise<Buffer>;
 
@@ -55,6 +64,34 @@ export async function verifyPassword(password: string, stored?: string | null): 
   const derived = await scrypt(password, salt, 64);
   const expected = Buffer.from(hashHex, "hex");
   return derived.length === expected.length && timingSafeEqual(derived, expected);
+}
+
+const TOKEN_TTL = {
+  password_reset: 60 * 60 * 1000, // 1 hour
+  email_verify: 7 * 24 * 60 * 60 * 1000, // 7 days
+} as const;
+
+function hashToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+async function issueToken(userId: string, type: keyof typeof TOKEN_TTL): Promise<string> {
+  const token = randomBytes(32).toString("hex");
+  await storage.createAuthToken(userId, type, hashToken(token), new Date(Date.now() + TOKEN_TTL[type]));
+  return token;
+}
+
+/** Email a verification link; logs the link when SMTP is not configured so local testing still works. */
+export async function sendVerificationEmail(user: User): Promise<void> {
+  if (!user.email || user.emailVerified) return;
+  const token = await issueToken(user.id, "email_verify");
+  const link = `${appUrl()}/api/verify-email?token=${token}`;
+  const sent = await emailService.sendEmailVerification(user.email, {
+    firstName: user.firstName,
+    link,
+    language: user.preferredLanguage ?? "en",
+  });
+  if (!sent) console.log(`[auth] verification link for ${user.email}: ${link}`);
 }
 
 export function toPublicUser(user: User): PublicUser {
@@ -157,7 +194,10 @@ export async function setupAuth(app: Express) {
         privacyAccepted: true,
         dataRetentionAccepted: true,
         emailMarketingConsent: data.emailMarketingConsent,
+        preferredLanguage: data.preferredLanguage,
       });
+
+      sendVerificationEmail(user).catch((error) => console.error("Verification email failed:", error));
 
       const consentBase = {
         userEmail: data.email,
@@ -221,6 +261,83 @@ export async function setupAuth(app: Express) {
       return res.status(401).json({ message: "Unauthorized" });
     }
     res.json(req.user);
+  });
+
+  // Password reset: always answer 200 so the endpoint cannot be used to probe emails.
+  app.post("/api/forgot-password", async (req, res) => {
+    const parsed = forgotPasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "A valid email address is required" });
+    }
+    try {
+      const user = await storage.getUserByEmail(parsed.data.email);
+      if (user?.email) {
+        const token = await issueToken(user.id, "password_reset");
+        const link = `${appUrl()}/reset-password?token=${token}`;
+        const sent = await emailService.sendPasswordReset(user.email, {
+          firstName: user.firstName,
+          link,
+          language: user.preferredLanguage ?? "en",
+        });
+        if (!sent) console.log(`[auth] password reset link for ${user.email}: ${link}`);
+      }
+    } catch (error) {
+      console.error("Forgot password error:", error);
+    }
+    res.json({ message: "If an account exists for that email, a reset link has been sent." });
+  });
+
+  app.post("/api/reset-password", async (req, res, next) => {
+    const parsed = resetPasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.errors[0]?.message ?? "Invalid request" });
+    }
+    try {
+      const record = await storage.findValidAuthToken("password_reset", hashToken(parsed.data.token));
+      if (!record) {
+        return res.status(400).json({ message: "This reset link is invalid or has expired.", code: "TOKEN_INVALID" });
+      }
+      const user = await storage.updateUser(record.userId, {
+        passwordHash: await hashPassword(parsed.data.password),
+        emailVerified: true, // they proved control of the inbox
+      });
+      await storage.consumeAuthToken(record.id);
+      const publicUser = toPublicUser(await syncAdminRole(user));
+      req.login(publicUser, (error) => {
+        if (error) return next(error);
+        res.json({ message: "Password updated", user: publicUser });
+      });
+    } catch (error) {
+      console.error("Reset password error:", error);
+      res.status(500).json({ message: "Could not reset password" });
+    }
+  });
+
+  app.post("/api/verify-email/request", isAuthenticated, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.user!.id);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      if (user.emailVerified) return res.json({ message: "Email already verified", verified: true });
+      await sendVerificationEmail(user);
+      res.json({ message: "Verification email sent", verified: false });
+    } catch (error) {
+      console.error("Verification request error:", error);
+      res.status(500).json({ message: "Could not send verification email" });
+    }
+  });
+
+  app.get("/api/verify-email", async (req, res) => {
+    const token = typeof req.query.token === "string" ? req.query.token : "";
+    try {
+      const record = token ? await storage.findValidAuthToken("email_verify", hashToken(token)) : undefined;
+      if (!record) return res.redirect("/my-claims?verified=0");
+      await storage.updateUser(record.userId, { emailVerified: true });
+      await storage.consumeAuthToken(record.id);
+      res.redirect("/my-claims?verified=1");
+    } catch (error) {
+      console.error("Verify email error:", error);
+      res.redirect("/my-claims?verified=0");
+    }
   });
 }
 

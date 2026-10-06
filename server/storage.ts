@@ -11,9 +11,11 @@ import {
   type UserRole,
   type ConsentRecord,
   type InsertConsentRecord,
+  authTokens,
+  type AuthToken,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, ilike, or, gte, lte } from "drizzle-orm";
+import { eq, desc, and, ilike, or, gte, lte, isNull, gt } from "drizzle-orm";
 
 /** Everything needed to insert a claim except the server-generated fields. */
 export type NewClaim = Omit<
@@ -31,12 +33,19 @@ export interface IStorage {
   updateUserRole(id: string, role: UserRole): Promise<User>;
   getAllUsers(): Promise<User[]>;
   getUsersWithMarketingConsent(): Promise<User[]>;
+  updateUser(id: string, data: Partial<UpsertUser>): Promise<User>;
+
+  // One-time tokens (password reset, email verification)
+  createAuthToken(userId: string, type: string, tokenHash: string, expiresAt: Date): Promise<AuthToken>;
+  findValidAuthToken(type: string, tokenHash: string): Promise<AuthToken | undefined>;
+  consumeAuthToken(id: number): Promise<void>;
 
   // Claims operations
   createClaim(claim: NewClaim, claimId: string): Promise<Claim>;
   getClaimById(id: number): Promise<Claim | undefined>;
   getClaimByClaimId(claimId: string): Promise<Claim | undefined>;
   getClaimsByEmail(email: string): Promise<Claim[]>;
+  getClaimsForUser(userId: string, email?: string | null): Promise<Claim[]>;
   updateClaimStatus(id: number, status: string, notes?: string): Promise<Claim>;
   updateClaimCompensation(id: number, compensationAmount: number, commissionAmount: number): Promise<Claim>;
   updateClaimPOA(id: number, poaSigned: boolean, poaDocumentUrl?: string): Promise<Claim>;
@@ -100,6 +109,40 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(users).where(eq(users.emailMarketingConsent, true));
   }
 
+  async updateUser(id: string, data: Partial<UpsertUser>): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  // One-time tokens
+  async createAuthToken(userId: string, type: string, tokenHash: string, expiresAt: Date): Promise<AuthToken> {
+    const [token] = await db.insert(authTokens).values({ userId, type, tokenHash, expiresAt }).returning();
+    return token;
+  }
+
+  async findValidAuthToken(type: string, tokenHash: string): Promise<AuthToken | undefined> {
+    const [token] = await db
+      .select()
+      .from(authTokens)
+      .where(
+        and(
+          eq(authTokens.type, type),
+          eq(authTokens.tokenHash, tokenHash),
+          isNull(authTokens.usedAt),
+          gt(authTokens.expiresAt, new Date()),
+        ),
+      );
+    return token;
+  }
+
+  async consumeAuthToken(id: number): Promise<void> {
+    await db.update(authTokens).set({ usedAt: new Date() }).where(eq(authTokens.id, id));
+  }
+
   // Claims operations
   async createClaim(insertClaim: NewClaim, claimId: string): Promise<Claim> {
     const [claim] = await db
@@ -135,6 +178,13 @@ export class DatabaseStorage implements IStorage {
       .from(claims)
       .where(eq(claims.email, email.toLowerCase()))
       .orderBy(desc(claims.createdAt));
+  }
+
+  async getClaimsForUser(userId: string, email?: string | null): Promise<Claim[]> {
+    const condition = email
+      ? or(eq(claims.userId, userId), eq(claims.email, email.toLowerCase()))
+      : eq(claims.userId, userId);
+    return await db.select().from(claims).where(condition).orderBy(desc(claims.createdAt));
   }
 
   async updateClaimStatus(id: number, status: string, notes?: string): Promise<Claim> {

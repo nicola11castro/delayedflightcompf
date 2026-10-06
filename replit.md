@@ -165,6 +165,10 @@ Changelog:
 - October 6, 2026. Public claim-status update and consent export endpoints locked down to admins
 - October 6, 2026. Build no longer imports Vite in production; Dockerfile, Render and Railway configs fixed; Vercel config removed
 - October 6, 2026. TypeScript check passes (was 25 errors); Replit dev banner removed from index.html
+- October 6, 2026. Phase 1: single brand (DelayedFlightComp), French/English toggle on every passenger screen and consent document
+- October 6, 2026. Phase 1: email verification, password reset, My Claims page, claims linked to accounts, prefilled claim form
+- October 6, 2026. Phase 1: "I don't know" delay reason; inadmissible reasons warn but can be submitted for verification
+- October 6, 2026. Phase 1: denied boarding priced at $900/$1,800/$2,400 by arrival delay; splash screen and invented statistic removed; signed unsubscribe link
 ```
 
 ## User Preferences

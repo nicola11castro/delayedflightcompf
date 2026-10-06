@@ -213,7 +213,7 @@ function AdminDashboardContent() {
     <div className="min-h-screen bg-background">
       {/* Windows 98 Style Title Bar */}
       <div className="win98-title-bar flex justify-between items-center">
-        <span>FlightClaim Pro - Admin Dashboard</span>
+        <span>DelayedFlightComp - Admin Dashboard</span>
         <div className="flex gap-3 items-center text-xs">
           <span>{currentUser?.email} ({currentUser?.role})</span>
           <Link href="/" className="underline">Site</Link>

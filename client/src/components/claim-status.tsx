@@ -3,73 +3,43 @@ import { useQuery } from "@tanstack/react-query";
 import { Search, Clock, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { apiRequest } from "@/lib/queryClient";
+import { useLang, useDynamicT } from "@/i18n";
+import type { Claim } from "@shared/schema";
 
-interface ClaimStatus {
-  id: number;
-  claimId: string;
-  passengerName: string;
-  status: string;
-  compensationAmount?: number;
-  commissionAmount?: number;
-  createdAt: string;
-  updatedAt: string;
+export function getStatusIcon(status: string) {
+  switch (status) {
+    case "submitted": return <Clock className="h-5 w-5 text-blue-500" />;
+    case "under-review": return <AlertCircle className="h-5 w-5 text-yellow-500" />;
+    case "approved": return <CheckCircle className="h-5 w-5 text-green-500" />;
+    case "rejected": return <XCircle className="h-5 w-5 text-red-500" />;
+    case "paid": return <CheckCircle className="h-5 w-5 text-green-600" />;
+    default: return <Clock className="h-5 w-5 text-gray-500" />;
+  }
 }
 
 export function ClaimStatus() {
+  const { t, lang } = useLang();
+  const dt = useDynamicT();
   const [claimId, setClaimId] = useState("");
   const [searchClaimId, setSearchClaimId] = useState("");
 
-  const { data: claimStatus, isLoading, error } = useQuery({
-    queryKey: ['/api/claims/status', searchClaimId],
+  const { data: claim, isLoading, error } = useQuery<Claim | null>({
+    queryKey: ["/api/claims/status", searchClaimId],
     queryFn: async () => {
       if (!searchClaimId) return null;
-      const response = await apiRequest('GET', `/api/claims/status/${searchClaimId}`);
+      const response = await apiRequest("GET", `/api/claims/status/${encodeURIComponent(searchClaimId)}`);
       return response.json();
     },
     enabled: !!searchClaimId,
   });
 
   const handleSearch = () => {
-    if (claimId.trim()) {
-      setSearchClaimId(claimId.trim());
-    }
+    if (claimId.trim()) setSearchClaimId(claimId.trim());
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'submitted':
-        return <Clock className="h-5 w-5 text-blue-500" />;
-      case 'under-review':
-        return <AlertCircle className="h-5 w-5 text-yellow-500" />;
-      case 'approved':
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
-      case 'rejected':
-        return <XCircle className="h-5 w-5 text-red-500" />;
-      case 'paid':
-        return <CheckCircle className="h-5 w-5 text-green-600" />;
-      default:
-        return <Clock className="h-5 w-5 text-gray-500" />;
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'submitted':
-        return 'Submitted';
-      case 'under-review':
-        return 'Under Review';
-      case 'approved':
-        return 'Approved';
-      case 'rejected':
-        return 'Rejected';
-      case 'paid':
-        return 'Paid';
-      default:
-        return status;
-    }
-  };
+  const compensation = claim?.compensationAmount ? Number(claim.compensationAmount) : 0;
+  const commission = claim?.commissionAmount ? Number(claim.commissionAmount) : 0;
 
   return (
     <section id="claim-status" className="py-12 bg-muted">
@@ -77,11 +47,9 @@ export function ClaimStatus() {
         <div className="win98-panel mb-6">
           <h2 className="text-lg font-bold text-foreground mb-2">
             <Search className="inline-block w-4 h-4 mr-2" />
-            Check Claim Status
+            {t("status.heading")}
           </h2>
-          <p className="text-xs text-muted-foreground">
-            Enter your Claim ID to track your compensation progress
-          </p>
+          <p className="text-xs text-muted-foreground">{t("status.help")}</p>
         </div>
 
         <div className="win98-panel">
@@ -89,69 +57,49 @@ export function ClaimStatus() {
             <div className="flex gap-2">
               <Input
                 type="text"
-                placeholder="Enter Claim ID (e.g., YUL-abc123-def456)"
+                placeholder={t("status.placeholder")}
                 value={claimId}
                 onChange={(e) => setClaimId(e.target.value)}
                 className="win98-inset text-xs"
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
               />
-              <Button 
-                onClick={handleSearch}
-                disabled={!claimId.trim() || isLoading}
-                className="btn-primary text-xs"
-              >
+              <Button onClick={handleSearch} disabled={!claimId.trim() || isLoading} className="btn-primary text-xs">
                 <Search className="w-3 h-3 mr-1" />
-                {isLoading ? "Searching..." : "Search"}
+                {isLoading ? t("status.searching") : t("status.search")}
               </Button>
             </div>
 
             {error && (
               <div className="p-3 win98-inset bg-destructive/10">
-                <p className="text-xs text-destructive">
-                  Claim not found. Please check your Claim ID and try again.
-                </p>
+                <p className="text-xs text-destructive">{t("status.notFound")}</p>
               </div>
             )}
 
-            {claimStatus && (
+            {claim && (
               <div className="space-y-4">
                 <div className="win98-panel">
-                  <h3 className="text-sm font-bold mb-3">Claim Details</h3>
+                  <h3 className="text-sm font-bold mb-3">{t("status.details")}</h3>
                   <div className="space-y-2 text-xs">
-                    <div className="flex justify-between">
-                      <span>Claim ID:</span>
-                      <span className="font-mono">{claimStatus.claimId}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Passenger:</span>
-                      <span>{claimStatus.passengerName}</span>
-                    </div>
+                    <div className="flex justify-between"><span>{t("status.claimId")}</span><span className="font-mono">{claim.claimId}</span></div>
+                    <div className="flex justify-between"><span>{t("status.passenger")}</span><span>{claim.passengerName}</span></div>
                     <div className="flex justify-between items-center">
-                      <span>Status:</span>
+                      <span>{t("status.status")}</span>
                       <div className="flex items-center gap-1">
-                        {getStatusIcon(claimStatus.status)}
-                        <span className="font-bold">{getStatusText(claimStatus.status)}</span>
+                        {getStatusIcon(claim.status)}
+                        <span className="font-bold">{dt("status.label", claim.status)}</span>
                       </div>
                     </div>
                     <div className="flex justify-between">
-                      <span>Submitted:</span>
-                      <span>{new Date(claimStatus.createdAt).toLocaleDateString()}</span>
+                      <span>{t("status.submittedOn")}</span>
+                      <span>{claim.createdAt ? new Date(claim.createdAt).toLocaleDateString(lang === "fr" ? "fr-CA" : "en-CA") : ""}</span>
                     </div>
-                    {claimStatus.compensationAmount && (
+                    {compensation > 0 && (
                       <>
-                        <div className="flex justify-between">
-                          <span>Compensation:</span>
-                          <span className="font-bold">${claimStatus.compensationAmount}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Our Commission (15%):</span>
-                          <span className="font-bold text-accent">${claimStatus.commissionAmount}</span>
-                        </div>
+                        <div className="flex justify-between"><span>{t("status.compensation")}</span><span className="font-bold">${compensation.toFixed(2)}</span></div>
+                        <div className="flex justify-between"><span>{t("status.commission")}</span><span className="font-bold text-accent">${commission.toFixed(2)}</span></div>
                         <div className="flex justify-between p-2 win98-inset">
-                          <span className="font-bold">You Receive:</span>
-                          <span className="font-bold text-secondary">
-                            ${(claimStatus.compensationAmount - (claimStatus.commissionAmount || 0)).toFixed(2)}
-                          </span>
+                          <span className="font-bold">{t("status.youReceive")}</span>
+                          <span className="font-bold text-secondary">${(compensation - commission).toFixed(2)}</span>
                         </div>
                       </>
                     )}
@@ -159,24 +107,8 @@ export function ClaimStatus() {
                 </div>
 
                 <div className="win98-panel">
-                  <h4 className="text-xs font-bold mb-2">Next Steps</h4>
-                  <div className="text-xs text-muted-foreground">
-                    {claimStatus.status === 'submitted' && (
-                      <p>Your claim has been submitted and is being reviewed by our team.</p>
-                    )}
-                    {claimStatus.status === 'under-review' && (
-                      <p>Your claim is currently under review. We'll update you soon.</p>
-                    )}
-                    {claimStatus.status === 'approved' && (
-                      <p>Congratulations! Your claim has been approved. Payment is being processed.</p>
-                    )}
-                    {claimStatus.status === 'rejected' && (
-                      <p>Unfortunately, your claim was not eligible for compensation under APPR regulations.</p>
-                    )}
-                    {claimStatus.status === 'paid' && (
-                      <p>Your compensation has been paid! Thank you for using our service.</p>
-                    )}
-                  </div>
+                  <h4 className="text-xs font-bold mb-2">{t("status.nextSteps")}</h4>
+                  <p className="text-xs text-muted-foreground">{dt("status.msg", claim.status)}</p>
                 </div>
               </div>
             )}

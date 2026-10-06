@@ -38,7 +38,7 @@ export default function AdminSetup() {
             Admin Setup
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Initialize the admin system for FlightClaim Pro
+            Initialize the admin system for DelayedFlightComp
           </p>
         </CardHeader>
         <CardContent className="space-y-4">

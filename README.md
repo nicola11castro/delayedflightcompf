@@ -1,4 +1,4 @@
-# FlightClaim Pro — delayedflightcomp.com
+# DelayedFlightComp — delayedflightcomp.com
 
 Flight delay compensation service for Canadian passengers under the Air Passenger
 Protection Regulations (APPR). Passengers estimate what they are owed, submit a
@@ -16,7 +16,8 @@ any host that offers Node 20+ and a PostgreSQL database.
 | Frontend | React 18, Vite, Tailwind, shadcn/ui, TanStack Query, wouter, Zod   |
 | Backend  | Node 20+, Express, TypeScript (ES modules)                         |
 | Database | PostgreSQL via Drizzle ORM (`pg` driver, works with Neon/Railway/Render/Supabase/local) |
-| Auth     | Email + password (passport-local, scrypt hashes, sessions in Postgres) |
+| Auth     | Email + password (passport-local, scrypt hashes, sessions in Postgres), email verification, password reset |
+| Languages | English and French (Québec); toggle in the navigation, dictionaries in `client/src/i18n/` |
 | Shared   | `shared/schema.ts` (tables + Zod schemas), `shared/appr.ts` (APPR rules) |
 
 ## Run locally
@@ -68,7 +69,9 @@ issue the TLS certificate. Login cookies are `Secure`, so production must be ser
 | `CONSENT_FILES=false`   | no       | Skip JSON copies of consent records on read-only disks                  |
 
 Every optional integration degrades gracefully: the feature reports "not
-configured" instead of failing silently.
+configured" instead of failing silently. Without SMTP, verification and
+password-reset links are printed in the server log so you can still test them.
+Marketing emails carry a signed one-click unsubscribe link.
 
 ## Admin access
 
@@ -79,12 +82,23 @@ configured" instead of failing silently.
    (claims + payments) or `senior_admin` (everything, including users, campaigns
    and exports) from the Users tab.
 
+## Languages
+
+Every passenger-facing screen, the consent documents and the verification /
+reset emails exist in English and French. Add or edit strings in
+`client/src/i18n/en.ts` and `client/src/i18n/fr.ts`; TypeScript fails the build
+if a French key is missing. The admin dashboard is English only.
+
+The French legal texts (terms, privacy, retention, POA, marketing consent) were
+written for this release and should be reviewed by a lawyer before launch, as
+should the English ones.
+
 ## How a claim flows
 
 1. **Calculator** (`/#calculator`): airline + delay length + reason → APPR amount, 15% fee, net. No account needed.
-2. **Claim form** (`/#claims`): 3 steps (flight details, documents, consents). Non-admissible delay reasons are blocked client- and server-side.
-3. **Server** generates one Claim ID (`YUL-xxxxxxxx-xxxxxx`), computes the compensation from the APPR rules table, stores the claim, records the POA (and optional marketing) consent, then in the background runs the optional AI pre-screen, Airtable mirror and confirmation email.
-4. **Passenger** sees the Claim ID on screen (and by email when SMTP is set) and tracks it at `/#track`.
+2. **Claim form** (`/#claims`): 3 steps (flight details, documents, consents). Signed-in users get their name and email prefilled and the claim is attached to their account. Passengers can answer "I don't know" for the reason; a reason that is normally not compensable shows a warning but can still be submitted so the team can verify what the airline really said.
+3. **Server** generates one Claim ID (`YUL-xxxxxxxx-xxxxxx`), computes the compensation from the APPR rules table (delays and cancellations by carrier size; denied boarding $900 / $1,800 / $2,400 for any carrier), flags claims that need the reason verified, stores the claim, records the POA (and optional marketing) consent, then in the background runs the optional AI pre-screen, Airtable mirror and confirmation email.
+4. **Passenger** sees the Claim ID on screen (and by email when SMTP is set), tracks it at `/#track`, and sees all their claims at `/my-claims`.
 5. **Admin** reviews claims, downloads documents, emails the airline, approves/rejects, sends the commission invoice and marks the claim paid.
 
 The money figures never come from the AI model; they come from
@@ -99,6 +113,7 @@ the server all share.
 | `claims`              | Claims, status history, compensation, consent flags, document URLs                     |
 | `consent_records`     | Audit trail of every consent (type, email, claim, IP, user agent, time)                |
 | `sessions`            | Login sessions                                                                         |
+| `auth_tokens`         | One-time tokens (hashed) for email verification and password reset                     |
 | `faq_items`           | FAQ entries (the site shows built-in defaults when the table is empty)                 |
 | `uploads/`            | Uploaded documents on local disk, served to admins only                                |
 | `consent-records/`    | JSON copies of consent records (convenience; the database is the source of truth)      |

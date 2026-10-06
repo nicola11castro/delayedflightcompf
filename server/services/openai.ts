@@ -86,13 +86,13 @@ export async function handleChatbotQuery(query: string, context?: string): Promi
   if (!openai) {
     return {
       message:
-        "Our assistant is offline at the moment. Please browse the FAQ below or email support@yulclaims.com and we will get back to you within 48 hours.",
+        "Our assistant is offline at the moment. Please browse the FAQ below or email support@delayedflightcomp.com and we will get back to you within 48 hours.",
       isHelpful: false,
     };
   }
 
   try {
-    const systemPrompt = `You are a helpful assistant for FlightClaim Pro, an airline compensation service that charges a 15% commission on successful claims.
+    const systemPrompt = `You are a helpful assistant for DelayedFlightComp, an airline compensation service that charges a 15% commission on successful claims.
 
 Key information about our service:
 - We charge 15% commission only on successful claims
