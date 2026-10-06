@@ -64,6 +64,7 @@ issue the TLS certificate. Login cookies are `Secure`, so production must be ser
 | `PAYMENT_INSTRUCTIONS`  | no       | Text in commission invoices                                             |
 | `GOOGLE_SHEETS_ID`, `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` | no | Admin export to Google Sheets |
 | `AIRTABLE_BASE_ID`, `AIRTABLE_API_KEY` | no | Mirror new claims into Airtable                              |
+| `FLIGHT_DATA_PROVIDER`, `AVIATIONSTACK_API_KEY` | no | Flight lookup (auto-fill + delay verification). Adapter pattern: add another provider in `server/services/flight-data.ts` |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | no | Commission payment links; point the Stripe webhook at `/api/stripe/webhook` (event `checkout.session.completed`) |
 | `DOCUSIGN_*`            | no       | Legacy DocuSign integration (the built-in signature replaces it)         |
 | `DATABASE_SSL=false`    | no       | Only for databases without TLS (local)                                  |
@@ -96,12 +97,13 @@ should the English ones.
 
 ## How a claim flows
 
-1. **Calculator** (`/#calculator`): airline + delay length + reason → APPR amount, 15% fee, net. No account needed.
-2. **Claim form** (`/#claims`): 3 steps (flight details, documents, consents). Signed-in users get their name and email prefilled and the claim is attached to their account. Passengers can answer "I don't know" for the reason; a reason that is normally not compensable shows a warning but can still be submitted so the team can verify what the airline really said.
-3. **Server** generates one Claim ID (`YUL-xxxxxxxx-xxxxxx`), computes the compensation from the APPR rules table (delays and cancellations by carrier size; denied boarding $900 / $1,800 / $2,400 for any carrier), flags claims that need the reason verified, stores the claim, records the POA (and optional marketing) consent, then in the background runs the optional AI pre-screen, Airtable mirror and confirmation email.
-4. **Passenger** sees the Claim ID on screen (and by email when SMTP is set), tracks it at `/#track`, and sees all their claims at `/my-claims`.
-5. **Passenger** signs the Power of Attorney on screen (`/sign/:claimId`, link in the confirmation email and on My Claims). The server renders a bilingual PDF, stores it, and emails a copy.
-6. **Admin** opens the claim page (`/admin/claims/:id`): timeline of every note, email, status change, letter, signature and payment; "send to airline" starts the 30-day APPR clock; overdue claims are flagged and can be escalated to the CTA in one click; approve/reject/paid each send a bilingual email; the commission invoice carries a Stripe payment link when Stripe is configured (e-Transfer instructions otherwise) and the webhook marks the claim paid.
+1. **Check my flight** (top of the landing page): flight number + date. With a flight-data provider configured the route, status and arrival delay are looked up and the APPR band is shown; without one, the airline is recognised from the code. Either way one click prefills the claim form.
+2. **Calculator** (`/#calculator`): what happened + airline + delay length + reason → APPR amount, 15% fee, net. No account needed.
+3. **Claim form** (`/#claims`): 3 steps (flight details, documents, consents). A "scan my boarding pass" button reads the pass with OpenAI vision when a key is set, otherwise with on-device OCR (tesseract.js), and fills the flight fields. Signed-in users get their name and email prefilled and the claim is attached to their account. Passengers can answer "I don't know" for the reason; a reason that is normally not compensable shows a warning but can still be submitted so the team can verify what the airline really said.
+4. **Server** generates one Claim ID (`YUL-xxxxxxxx-xxxxxx`), computes the compensation from the APPR rules table (delays and cancellations by carrier size; denied boarding $900 / $1,800 / $2,400 for any carrier), flags claims that need the reason verified, stores the claim, records the POA (and optional marketing) consent, then in the background runs the optional AI pre-screen, Airtable mirror and confirmation email.
+5. **Passenger** sees the Claim ID on screen (and by email when SMTP is set), tracks it at `/#track`, and sees all their claims at `/my-claims`.
+6. **Passenger** signs the Power of Attorney on screen (`/sign/:claimId`, link in the confirmation email and on My Claims). The server renders a bilingual PDF, stores it, and emails a copy.
+7. **Admin** opens the claim page (`/admin/claims/:id`): flight data from the provider with a "differs from reported" flag when the passenger's delay does not match, timeline of every note, email, status change, letter, signature and payment; "send to airline" starts the 30-day APPR clock; overdue claims are flagged and can be escalated to the CTA in one click; approve/reject/paid each send a bilingual email; the commission invoice carries a Stripe payment link when Stripe is configured (e-Transfer instructions otherwise) and the webhook marks the claim paid.
 
 The money figures never come from the AI model; they come from
 `shared/appr.ts`, which the calculator, the claim form, the APPR guide page and

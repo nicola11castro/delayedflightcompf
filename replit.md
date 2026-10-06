@@ -173,6 +173,9 @@ Changelog:
 - October 6, 2026. Phase 2: bilingual stage emails (received, sent to airline, escalated, approved, rejected, paid, invoice, POA signed) logged on the claim
 - October 6, 2026. Phase 2: built-in Power of Attorney signature pad producing a stored PDF (pdf-lib), emailed to the passenger
 - October 6, 2026. Phase 2: Stripe Checkout payment link for the commission with webhook; e-Transfer fallback
+- October 6, 2026. Phase 3: flight-data provider adapter (AviationStack) with claim enrichment and delay verification flag for admins
+- October 6, 2026. Phase 3: "Check my flight" widget as the landing page's first step, prefilling the claim form
+- October 6, 2026. Phase 3: boarding-pass reading (OpenAI vision, on-device tesseract.js fallback) in the claim form
 ```
 
 ## User Preferences

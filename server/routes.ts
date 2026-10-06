@@ -12,6 +12,9 @@ import { verifyEmailSignature, verifyClaimToken, signPoaUrl } from "./config";
 import { sendStageEmail } from "./services/claim-emails";
 import { renderPoaPdf, storePoaPdf, poaFileName, POA_VERSION } from "./services/poa";
 import { createCommissionCheckout, isStripeConfigured, verifyStripeSignature } from "./services/stripe";
+import { lookupFlight, isFlightLookupConfigured, offlineFlightHint, normalizeFlightNumber } from "./services/flight-data";
+import { extractBoardingPass, isBoardingPassAiConfigured } from "./services/boarding-pass";
+import { isAiConfigured } from "./services/openai";
 import { validateClaimEligibility, handleChatbotQuery, generateCommissionExplanation } from "./services/openai";
 import { airtableService } from "./services/airtable";
 import { docusignService } from "./services/docusign";
@@ -79,7 +82,7 @@ const formBoolean = z.preprocess(
 );
 
 const claimSubmissionSchema = insertClaimSchema
-  .omit({ documentsUrls: true, boardingPassUrl: true, poaDocumentUrl: true, status: true })
+  .omit({ documentsUrls: true, boardingPassUrl: true, poaDocumentUrl: true, status: true, flightData: true })
   .extend({
     passengerName: z.string().trim().min(1, "Passenger name is required"),
     email: z.string().trim().toLowerCase().email("A valid email address is required"),
@@ -145,8 +148,46 @@ const STATUS_MESSAGES: Record<(typeof CLAIM_STATUSES)[number], string> = {
   paid: "Your compensation has been paid. Thank you for using FlightClaim Pro.",
 };
 
-/** Non-blocking follow-ups after a claim is saved: AI second opinion, Airtable mirror, confirmation email. */
+/** Non-blocking follow-ups after a claim is saved: flight data, AI second opinion, Airtable mirror, confirmation email. */
 async function runClaimFollowUps(claim: Claim, estimate: CompensationEstimate) {
+  if (isFlightLookupConfigured()) {
+    try {
+      const flight = await lookupFlight(claim.flightNumber, claim.flightDate);
+      if (flight) {
+        const matchesReported = flight.delayBand === null ? null : flight.delayBand === claim.delayDuration;
+        await storage.updateClaim(claim.id, {
+          flightData: {
+            provider: flight.provider,
+            airlineName: flight.airlineName,
+            airlineIata: flight.airlineIata,
+            departureIata: flight.departureIata,
+            departureAirport: flight.departureAirport,
+            arrivalIata: flight.arrivalIata,
+            arrivalAirport: flight.arrivalAirport,
+            scheduledArrival: flight.scheduledArrival,
+            actualArrival: flight.actualArrival,
+            delayMinutes: flight.delayMinutes,
+            status: flight.status,
+            delayBand: flight.delayBand,
+            matchesReported,
+            fetchedAt: flight.fetchedAt,
+          },
+        });
+        const delayText = flight.delayMinutes === null ? "delay unknown" : `${Math.round(flight.delayMinutes / 60 * 10) / 10}h late at arrival`;
+        await storage.addClaimEvent({
+          claimId: claim.id,
+          type: "system",
+          message: `Flight data (${flight.provider}): ${flight.airlineName ?? "?"} ${flight.flightIata} ${flight.departureIata ?? "?"}→${flight.arrivalIata ?? "?"}, status ${flight.status ?? "?"}, ${delayText}. ${matchesReported === false ? `Reported ${claim.delayDuration}h does NOT match provider band ${flight.delayBand ?? "<3h"}.` : matchesReported ? "Matches the reported delay." : ""}`,
+          metadata: { matchesReported, providerBand: flight.delayBand, reported: claim.delayDuration },
+        });
+      } else {
+        await storage.addClaimEvent({ claimId: claim.id, type: "system", message: `Flight data: no record found for ${claim.flightNumber} on ${claim.flightDate}; verify manually.` });
+      }
+    } catch (error) {
+      console.error("Flight data enrichment failed:", error);
+    }
+  }
+
   try {
     const ai = await validateClaimEligibility({
       flightNumber: claim.flightNumber,
@@ -209,6 +250,59 @@ async function claimDetail(claim: Claim) {
 export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", time: new Date().toISOString() });
+  });
+
+  // Feature flags the client adapts to (never secrets).
+  app.get("/api/config", (_req, res) => {
+    res.json({
+      flightLookup: isFlightLookupConfigured(),
+      boardingPassAi: isBoardingPassAiConfigured(),
+      assistant: isAiConfigured(),
+      payments: isStripeConfigured(),
+    });
+  });
+
+  // Flight lookup for the "check my flight" step. Falls back to what we know from the airline code.
+  app.get("/api/flights/lookup", async (req, res) => {
+    const parsed = z
+      .object({ flightNumber: z.string().trim().min(3).max(10), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) })
+      .safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "A flight number (e.g. AC123) and a date are required" });
+    }
+    const flightIata = normalizeFlightNumber(parsed.data.flightNumber);
+    if (!flightIata) {
+      return res.status(400).json({ message: "Flight number should look like AC123" });
+    }
+    const hint = offlineFlightHint(flightIata);
+    if (!isFlightLookupConfigured()) {
+      return res.json({ configured: false, found: false, flightIata, ...hint });
+    }
+    const flight = await lookupFlight(flightIata, parsed.data.date);
+    if (!flight) {
+      return res.json({ configured: true, found: false, flightIata, ...hint });
+    }
+    res.json({ configured: true, found: true, ...hint, ...flight });
+  });
+
+  // Boarding-pass reading (AI vision). 503 tells the client to use on-device OCR instead.
+  const boardingPassUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1 } });
+  app.post("/api/boarding-pass/extract", (req, res) => {
+    boardingPassUpload.single("image")(req, res, async (err: unknown) => {
+      if (err) return res.status(400).json({ message: "Could not read the uploaded image" });
+      if (!isBoardingPassAiConfigured()) return res.status(503).json({ message: "Boarding-pass AI reading is not configured", code: "NOT_CONFIGURED" });
+      const file = req.file;
+      if (!file || !["image/png", "image/jpeg", "image/jpg", "image/webp"].includes(file.mimetype)) {
+        return res.status(400).json({ message: "Upload a PNG, JPG or WEBP photo of the boarding pass" });
+      }
+      try {
+        const fields = await extractBoardingPass(file.buffer, file.mimetype);
+        res.json(fields ?? { confidence: 0, source: "ai" });
+      } catch (error) {
+        console.error("Boarding pass extraction failed:", error);
+        res.status(502).json({ message: "Could not read the boarding pass; please fill the fields manually" });
+      }
+    });
   });
 
   // Sessions, /api/register, /api/login, /api/logout, /api/auth/user

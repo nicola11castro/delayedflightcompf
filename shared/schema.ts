@@ -83,6 +83,23 @@ export const claims = pgTable("claims", {
   airlineContactedAt: timestamp("airline_contacted_at"),
   airlineDeadlineAt: timestamp("airline_deadline_at"),
   ctaFiledAt: timestamp("cta_filed_at"),
+  // Flight data from the lookup provider (stored at submission for verification)
+  flightData: jsonb("flight_data").$type<{
+    provider: string;
+    airlineName?: string;
+    airlineIata?: string;
+    departureIata?: string;
+    departureAirport?: string;
+    arrivalIata?: string;
+    arrivalAirport?: string;
+    scheduledArrival?: string;
+    actualArrival?: string;
+    delayMinutes?: number | null;
+    status?: string;
+    delayBand?: string | null;
+    matchesReported?: boolean | null;
+    fetchedAt: string;
+  }>(),
   // Commission collection
   paymentStatus: text("payment_status").default("none"), // none | link_sent | paid
   paymentLinkUrl: text("payment_link_url"),
@@ -185,6 +202,7 @@ export const insertClaimSchema = createInsertSchema(claims).omit({
   userId: true,
   language: true,
   poaSignedAt: true,
+  flightData: true,
   airlineContactedAt: true,
   airlineDeadlineAt: true,
   ctaFiledAt: true,

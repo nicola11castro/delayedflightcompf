@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CloudUpload, FileText, Handshake, Check, Loader2 } from "lucide-react";
+import { CloudUpload, FileText, Handshake, Check, Loader2, ScanLine } from "lucide-react";
+import { scanBoardingPass } from "@/lib/boarding-pass-ocr";
+import type { ClaimPrefill } from "./flight-check";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -41,6 +43,7 @@ export function ClaimForm() {
   const [showApprModal, setShowApprModal] = useState(false);
   const [submittedClaim, setSubmittedClaim] = useState<SubmittedClaim | null>(null);
   const [prefilled, setPrefilled] = useState(false);
+  const [scanState, setScanState] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -75,6 +78,46 @@ export function ClaimForm() {
 
   const issueType = form.watch("issueType");
   const bands = bandsForIssue(issueType);
+
+  // Prefill from the "check my flight" widget or a boarding-pass scan.
+  const applyPrefill = (data: ClaimPrefill) => {
+    const entries = Object.entries(data) as [keyof ClaimPrefill, string | undefined][];
+    for (const [key, value] of entries) {
+      if (value) form.setValue(key as keyof ClaimFormData, value, { shouldDirty: true, shouldValidate: false });
+    }
+    setSubmittedClaim(null);
+    setCurrentStep(1);
+  };
+  useEffect(() => {
+    const handler = (event: Event) => applyPrefill((event as CustomEvent<ClaimPrefill>).detail);
+    window.addEventListener("prefillClaim", handler);
+    return () => window.removeEventListener("prefillClaim", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleScan = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setScanState(t("scan.reading"));
+    try {
+      const fields = await scanBoardingPass(file, () => setScanState(t("scan.ocrFallback")));
+      const filled = [fields.flightNumber, fields.flightDate, fields.departureAirport, fields.arrivalAirport].filter(Boolean).length;
+      applyPrefill({
+        flightNumber: fields.flightNumber,
+        flightDate: fields.flightDate,
+        departureAirport: fields.departureAirport,
+        arrivalAirport: fields.arrivalAirport,
+        passengerName: form.getValues("passengerName") ? undefined : fields.passengerName,
+      });
+      if (file.type.startsWith("image/")) setUploadedFiles((prev) => (prev.length < 5 ? [...prev, file] : prev));
+      toast({ title: filled >= 3 ? t("scan.done") : filled > 0 ? t("scan.partial") : t("scan.failed"), variant: filled > 0 ? "default" : "destructive" });
+    } catch (error) {
+      toast({ title: t("scan.failed"), description: error instanceof Error ? error.message : undefined, variant: "destructive" });
+    } finally {
+      setScanState(null);
+    }
+  };
 
   const submitClaimMutation = useMutation({
     mutationFn: async (data: ClaimFormData): Promise<SubmittedClaim> => {
@@ -212,6 +255,15 @@ export function ClaimForm() {
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 {currentStep === 1 && (
                   <div className="space-y-6">
+                    <div className="win98-inset p-3 flex flex-wrap items-center gap-3">
+                      <input type="file" accept="image/*" capture="environment" id="boarding-pass-scan" className="hidden" onChange={handleScan} disabled={!!scanState} />
+                      <label htmlFor="boarding-pass-scan" className={`win98-button inline-flex items-center text-xs px-3 py-2 ${scanState ? "opacity-60" : "cursor-pointer"}`}>
+                        {scanState ? <Loader2 className="h-3 w-3 mr-2 animate-spin" /> : <ScanLine className="h-3 w-3 mr-2" />}
+                        {scanState ?? t("scan.button")}
+                      </label>
+                      <span className="text-xs text-muted-foreground flex-1">{t("scan.help")}</span>
+                    </div>
+
                     <div className="grid md:grid-cols-2 gap-6">
                       <FormField control={form.control} name="flightNumber" render={({ field, fieldState }) => (
                         <FormItem>

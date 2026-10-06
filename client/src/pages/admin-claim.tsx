@@ -116,6 +116,20 @@ export default function AdminClaim() {
               </div>
             </div>
 
+            {claim.flightData && (
+              <div className="win98-panel text-sm space-y-1">
+                <h3 className="font-bold">Flight data ({claim.flightData.provider})</h3>
+                <div>{claim.flightData.airlineName} {claim.flightData.departureIata} → {claim.flightData.arrivalIata} · {claim.flightData.status}</div>
+                <div>Scheduled arrival: {date(claim.flightData.scheduledArrival)}</div>
+                <div>Actual arrival: {date(claim.flightData.actualArrival)}</div>
+                <div>
+                  Delay: {claim.flightData.delayMinutes != null ? `${Math.round(claim.flightData.delayMinutes / 6) / 10}h` : "unknown"} → band {claim.flightData.delayBand ?? "<3h"}
+                  {claim.flightData.matchesReported === false && <Badge variant="destructive" className="ml-2">Differs from reported {claim.delayDuration}h</Badge>}
+                  {claim.flightData.matchesReported === true && <Badge variant="default" className="ml-2">Matches</Badge>}
+                </div>
+              </div>
+            )}
+
             <div className="win98-panel text-sm space-y-2">
               <h3 className="font-bold">Change status</h3>
               <select className="win98-input text-xs w-full" value={status} onChange={(e) => setStatus(e.target.value)}>

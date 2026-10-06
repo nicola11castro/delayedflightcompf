@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useLang } from "@/i18n";
+import { FlightCheck } from "./flight-check";
 
 export function Hero() {
   const { isAuthenticated, user } = useAuth();
@@ -65,22 +66,17 @@ export function Hero() {
             )}
           </div>
 
-          <div>
+          <div className="space-y-4">
+            <FlightCheck />
             <div className="win98-panel">
-              <div className="text-center">
-                <div className="w-12 h-12 bg-accent flex items-center justify-center mx-auto mb-2" style={{ border: "2px outset" }}>
-                  <FileText className="w-6 h-6 text-accent-foreground" />
-                </div>
-                <h3 className="font-bold text-sm mb-2">{t("hero.quickTitle")}</h3>
-                <p className="text-xs mb-3">{t("hero.quickLead")}</p>
-                <div className="space-y-1 text-left text-xs">
-                  {(["hero.quick1", "hero.quick2", "hero.quick3"] as const).map((key) => (
-                    <div key={key} className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-secondary" style={{ border: "1px outset" }}></div>
-                      <span>{t(key)}</span>
-                    </div>
-                  ))}
-                </div>
+              <h3 className="font-bold text-sm mb-2">{t("hero.quickTitle")}</h3>
+              <div className="space-y-1 text-left text-xs">
+                {(["hero.quick1", "hero.quick2", "hero.quick3"] as const).map((key) => (
+                  <div key={key} className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-secondary" style={{ border: "1px outset" }}></div>
+                    <span>{t(key)}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
