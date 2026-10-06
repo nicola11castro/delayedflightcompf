@@ -36,16 +36,29 @@ export class EmailService {
   }
 
   private async send(mail: { to: string; fromName?: string; template: EmailTemplate }): Promise<boolean> {
+    return this.sendMail({ to: mail.to, fromName: mail.fromName, ...mail.template });
+  }
+
+  /** Low-level send used by the stage templates; attachments are optional (e.g. the signed POA). */
+  async sendMail(mail: {
+    to: string;
+    fromName?: string;
+    subject: string;
+    html: string;
+    text: string;
+    attachments?: { filename: string; content: Buffer; contentType?: string }[];
+  }): Promise<boolean> {
     if (!this.transporter) {
-      console.log(`[email] skipped "${mail.template.subject}" -> ${mail.to} (SMTP not configured)`);
+      console.log(`[email] skipped "${mail.subject}" -> ${mail.to} (SMTP not configured)`);
       return false;
     }
     await this.transporter.sendMail({
       from: `"${mail.fromName ?? BRAND_NAME}" <${fromAddress}>`,
       to: mail.to,
-      subject: mail.template.subject,
-      html: mail.template.html,
-      text: mail.template.text,
+      subject: mail.subject,
+      html: mail.html,
+      text: mail.text,
+      attachments: mail.attachments,
     });
     return true;
   }

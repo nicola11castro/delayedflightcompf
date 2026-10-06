@@ -12,6 +12,8 @@ import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
 import MyClaims from "@/pages/my-claims";
 import Unsubscribed from "@/pages/unsubscribed";
+import SignPoa from "@/pages/sign-poa";
+import AdminClaim from "@/pages/admin-claim";
 import AdminDashboard from "@/pages/admin-dashboard";
 import AdminSetup from "@/pages/admin-setup";
 import Register from "@/pages/register";
@@ -23,6 +25,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/admin/setup" component={AdminSetup} />
+      <Route path="/admin/claims/:id" component={AdminClaim} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/login" component={Login} />
       <Route path="/forgot-password" component={ForgotPassword} />
@@ -30,6 +33,7 @@ function Router() {
       <Route path="/register" component={Register} />
       <Route path="/my-claims" component={MyClaims} />
       <Route path="/unsubscribed" component={Unsubscribed} />
+      <Route path="/sign/:claimId" component={SignPoa} />
       <Route path="/appr-guide" component={ApprGuide} />
       <Route path="/consent-demo" component={() => <ConsentDemo />} />
       <Route path="/" component={Home} />

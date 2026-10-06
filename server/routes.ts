@@ -8,8 +8,10 @@ import { z } from "zod";
 import { storage } from "./storage";
 import { insertClaimSchema, CLAIM_STATUSES, USER_ROLES, type Claim } from "@shared/schema";
 import { estimateCompensation, getReasonStatus, isDelayBand, bandsForIssue, ISSUE_TYPES, type CompensationEstimate } from "@shared/appr";
-import { BILLING_EMAIL } from "@shared/brand";
-import { verifyEmailSignature } from "./config";
+import { verifyEmailSignature, verifyClaimToken, signPoaUrl } from "./config";
+import { sendStageEmail } from "./services/claim-emails";
+import { renderPoaPdf, storePoaPdf, poaFileName, POA_VERSION } from "./services/poa";
+import { createCommissionCheckout, isStripeConfigured, verifyStripeSignature } from "./services/stripe";
 import { validateClaimEligibility, handleChatbotQuery, generateCommissionExplanation } from "./services/openai";
 import { airtableService } from "./services/airtable";
 import { docusignService } from "./services/docusign";
@@ -175,18 +177,33 @@ async function runClaimFollowUps(claim: Claim, estimate: CompensationEstimate) {
     }
   }
 
-  try {
-    await emailService.sendClaimConfirmation(claim.email, {
-      claimId: claim.claimId,
-      passengerName: claim.passengerName,
-      flightNumber: claim.flightNumber,
-      flightDate: claim.flightDate,
-      estimatedCompensation: claim.compensationAmount ? Number(claim.compensationAmount) : undefined,
-      commissionAmount: claim.commissionAmount ? Number(claim.commissionAmount) : undefined,
-    });
-  } catch (error) {
-    console.error("Confirmation email failed:", error);
-  }
+  await sendStageEmail(claim, "submitted");
+}
+
+const AIRLINE_RESPONSE_DAYS = 30;
+
+function daysBetween(from: Date, to: Date): number {
+  return Math.ceil((to.getTime() - from.getTime()) / (24 * 60 * 60 * 1000));
+}
+
+/** Admin view of a claim with its event log and computed deadline state. */
+async function claimDetail(claim: Claim) {
+  const events = await storage.getClaimEvents(claim.id);
+  const now = new Date();
+  const deadline = claim.airlineDeadlineAt ? new Date(claim.airlineDeadlineAt) : null;
+  const open = !["approved", "rejected", "paid"].includes(claim.status);
+  const daysLeft = deadline ? daysBetween(now, deadline) : null;
+  return {
+    ...claim,
+    events,
+    lifecycle: {
+      airlineResponseDays: AIRLINE_RESPONSE_DAYS,
+      daysLeft,
+      overdue: open && deadline !== null && daysLeft !== null && daysLeft < 0 && !claim.ctaFiledAt,
+      canEscalate: open && deadline !== null && !claim.ctaFiledAt,
+    },
+    poaSignUrl: claim.poaSigned ? null : signPoaUrl(claim.claimId),
+  };
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -271,6 +288,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         claimId,
       );
 
+      await storage.addClaimEvent({
+        claimId: claim.id,
+        type: "system",
+        message: `Claim submitted (${data.issueType}, ${data.delayDuration}h, reason: ${data.delayReason}). ${estimate.reason}`,
+        actorEmail: req.user?.email ?? null,
+        metadata: { estimate, needsReview: estimate.needsReview },
+      });
+
       const consentBase = {
         userEmail: data.email,
         userName: data.passengerName,
@@ -335,7 +360,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/my-claims", isAuthenticated, async (req, res) => {
     try {
-      res.json(await storage.getClaimsForUser(req.user!.id, req.user!.email));
+      const mine = await storage.getClaimsForUser(req.user!.id, req.user!.email);
+      res.json(mine.map((claim) => ({ ...claim, poaSignUrl: claim.poaSigned ? null : signPoaUrl(claim.claimId) })));
     } catch (error) {
       console.error("My claims error:", error);
       res.status(500).json({ message: "Failed to retrieve your claims" });
@@ -431,16 +457,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { status, notes } = parsed.data;
       const historyNote = notes || `Status changed from ${existing.status} to ${status} by ${req.user?.email ?? "admin"}`;
-      const claim = await storage.updateClaimStatus(id, status, historyNote);
+      let claim = await storage.updateClaimStatus(id, status, historyNote);
+      if (status === "paid" && claim.paymentStatus !== "paid") {
+        claim = await storage.updateClaim(id, { paymentStatus: "paid", paidAt: new Date() });
+      }
+      await storage.addClaimEvent({
+        claimId: id,
+        type: "status",
+        message: `Status ${existing.status} → ${status}${notes ? `: ${notes}` : ""}`,
+        actorEmail: req.user?.email ?? null,
+        metadata: { from: existing.status, to: status },
+      });
 
-      emailService
-        .sendStatusUpdate(claim.email, {
-          claimId: claim.claimId,
-          passengerName: claim.passengerName,
-          newStatus: status,
-          statusMessage: notes || STATUS_MESSAGES[status],
-        })
-        .catch((error) => console.error("Status update email failed:", error));
+      if (status !== existing.status) {
+        if (status === "approved" || status === "rejected" || status === "paid") {
+          void sendStageEmail(claim, status, { actorEmail: req.user?.email });
+        } else {
+          emailService
+            .sendStatusUpdate(claim.email, {
+              claimId: claim.claimId,
+              passengerName: claim.passengerName,
+              newStatus: status,
+              statusMessage: notes || STATUS_MESSAGES[status],
+            })
+            .catch((error) => console.error("Status update email failed:", error));
+        }
+      }
 
       res.json(claim);
     } catch (error) {
@@ -490,6 +532,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Record that the claim went to the airline (starts the 30-day clock) and email the letter when SMTP is set up.
   app.post("/api/admin/claims/:id/email-airline", isJuniorAdmin, async (req, res) => {
     try {
       const id = Number(req.params.id);
@@ -498,57 +541,148 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Claim not found" });
       }
       const to = process.env.AIRLINE_CLAIMS_EMAIL;
-      if (!to) {
-        return res.status(503).json({
-          message: "Set AIRLINE_CLAIMS_EMAIL (the airline's claims inbox, or your own inbox to forward manually) before sending claim letters.",
-        });
-      }
-      if (!emailService.isConfigured()) {
-        return res.status(503).json({ message: "Email is not configured. Set SMTP_HOST, SMTP_USER and SMTP_PASS." });
+      let emailed = false;
+      if (to && emailService.isConfigured()) {
+        emailed = await emailService.sendAirlineClaimLetter(to, claim);
       }
 
-      await emailService.sendAirlineClaimLetter(to, claim);
       const nextStatus = claim.status === "submitted" ? "under-review" : claim.status;
-      const updated = await storage.updateClaimStatus(
-        claim.id,
-        nextStatus,
-        `Claim letter emailed to ${to} by ${req.user?.email ?? "admin"}`,
-      );
-      res.json({ message: `Claim letter sent to ${to}`, claim: updated });
+      const contactedAt = new Date();
+      const note = emailed
+        ? `Claim letter emailed to ${to} by ${req.user?.email ?? "admin"}`
+        : `Claim sent to the airline (recorded by ${req.user?.email ?? "admin"}; letter not emailed automatically)`;
+      await storage.updateClaimStatus(claim.id, nextStatus, note);
+      const updated = await storage.updateClaim(claim.id, {
+        airlineContactedAt: claim.airlineContactedAt ?? contactedAt,
+        airlineDeadlineAt: claim.airlineDeadlineAt ?? new Date(contactedAt.getTime() + AIRLINE_RESPONSE_DAYS * 24 * 60 * 60 * 1000),
+      });
+      await storage.addClaimEvent({
+        claimId: claim.id,
+        type: "letter",
+        message: `${emailed ? `Claim letter emailed to the airline (${to}).` : "Claim recorded as sent to the airline (send the letter manually: " + (to ? "SMTP not configured" : "AIRLINE_CLAIMS_EMAIL not set") + ")."} Airline has ${AIRLINE_RESPONSE_DAYS} days to respond.`,
+        actorEmail: req.user?.email ?? null,
+        metadata: { to: to ?? null, emailed },
+      });
+      void sendStageEmail(updated, "sent_to_airline", { actorEmail: req.user?.email });
+      res.json({
+        message: emailed
+          ? `Claim letter sent to ${to}; airline deadline set`
+          : `Airline deadline recorded. ${to ? "Email is not configured, send the letter manually." : "Set AIRLINE_CLAIMS_EMAIL to email letters automatically."}`,
+        emailed,
+        claim: updated,
+      });
     } catch (error) {
       console.error("Email airline error:", error);
-      res.status(500).json({ message: "Failed to send the claim letter" });
+      res.status(500).json({ message: "Failed to record the airline contact" });
     }
   });
 
-  app.post("/api/admin/claims/:id/invoice", isJuniorAdmin, async (req, res) => {
+  // Commission invoice: a Stripe Checkout link when configured, e-Transfer instructions otherwise.
+  const sendInvoiceHandler: RequestHandler = async (req, res) => {
     try {
       const id = Number(req.params.id);
-      const claim = Number.isInteger(id) ? await storage.getClaimById(id) : undefined;
+      let claim = Number.isInteger(id) ? await storage.getClaimById(id) : undefined;
       if (!claim) {
         return res.status(404).json({ message: "Claim not found" });
       }
       if (!claim.compensationAmount || !claim.commissionAmount) {
         return res.status(400).json({ message: "This claim has no compensation amount yet" });
       }
-      if (!emailService.isConfigured()) {
-        return res.status(503).json({ message: "Email is not configured. Set SMTP_HOST, SMTP_USER and SMTP_PASS." });
+      if (claim.paymentStatus === "paid") {
+        return res.status(400).json({ message: "This commission is already paid" });
       }
 
-      await emailService.sendCommissionInvoice(claim.email, {
-        claimId: claim.claimId,
-        passengerName: claim.passengerName,
-        compensationAmount: Number(claim.compensationAmount),
-        commissionAmount: Number(claim.commissionAmount),
-        paymentInstructions:
-          process.env.PAYMENT_INSTRUCTIONS ||
-          `Please send the commission amount by Interac e-Transfer to ${BILLING_EMAIL}, quoting your Claim ID.`,
+      let paymentLink = claim.paymentLinkUrl ?? undefined;
+      if (isStripeConfigured() && !paymentLink) {
+        const session = await createCommissionCheckout(claim);
+        paymentLink = session.url;
+        claim = await storage.updateClaim(claim.id, { paymentLinkUrl: session.url, stripeSessionId: session.id, paymentStatus: "link_sent" });
+      } else if (!paymentLink) {
+        claim = await storage.updateClaim(claim.id, { paymentStatus: "link_sent" });
+      }
+
+      await storage.addClaimEvent({
+        claimId: claim.id,
+        type: "payment",
+        message: paymentLink ? `Commission invoice sent with Stripe payment link` : `Commission invoice sent with e-Transfer instructions (Stripe not configured)`,
+        actorEmail: req.user?.email ?? null,
+        metadata: { paymentLink: paymentLink ?? null, commission: claim.commissionAmount },
       });
-      await storage.updateClaimStatus(claim.id, claim.status, `Commission invoice emailed by ${req.user?.email ?? "admin"}`);
-      res.json({ message: `Invoice emailed to ${claim.email}` });
+      const sent = await sendStageEmail(claim, "payment_link", { actorEmail: req.user?.email, paymentLink });
+      res.json({
+        message: sent ? `Invoice emailed to ${claim.email}` : `Invoice recorded; email not sent (SMTP not configured)`,
+        paymentLink: paymentLink ?? null,
+        claim,
+      });
     } catch (error) {
-      console.error("Invoice email error:", error);
-      res.status(500).json({ message: "Failed to send the invoice" });
+      console.error("Invoice error:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to send the invoice" });
+    }
+  };
+  app.post("/api/admin/claims/:id/invoice", isJuniorAdmin, sendInvoiceHandler);
+  app.post("/api/admin/claims/:id/payment-link", isJuniorAdmin, sendInvoiceHandler);
+
+  // Claim detail with event log
+  app.get("/api/admin/claims/:id", isJuniorAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const claim = Number.isInteger(id) ? await storage.getClaimById(id) : undefined;
+      if (!claim) {
+        return res.status(404).json({ message: "Claim not found" });
+      }
+      res.json(await claimDetail(claim));
+    } catch (error) {
+      console.error("Claim detail error:", error);
+      res.status(500).json({ message: "Failed to load claim" });
+    }
+  });
+
+  app.post("/api/admin/claims/:id/notes", isJuniorAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const parsed = z.object({ message: z.string().trim().min(1).max(5000) }).safeParse(req.body);
+      if (!Number.isInteger(id) || !parsed.success) {
+        return res.status(400).json({ message: "A note is required" });
+      }
+      const claim = await storage.getClaimById(id);
+      if (!claim) {
+        return res.status(404).json({ message: "Claim not found" });
+      }
+      const event = await storage.addClaimEvent({ claimId: id, type: "note", message: parsed.data.message, actorEmail: req.user?.email ?? null });
+      res.status(201).json(event);
+    } catch (error) {
+      console.error("Add note error:", error);
+      res.status(500).json({ message: "Failed to add note" });
+    }
+  });
+
+  // Airline missed its 30 days: record the CTA complaint and tell the passenger.
+  app.post("/api/admin/claims/:id/escalate", isJuniorAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const claim = Number.isInteger(id) ? await storage.getClaimById(id) : undefined;
+      if (!claim) {
+        return res.status(404).json({ message: "Claim not found" });
+      }
+      if (claim.ctaFiledAt) {
+        return res.status(400).json({ message: "Already escalated to the CTA" });
+      }
+      const parsed = z.object({ reference: z.string().trim().max(100).optional() }).safeParse(req.body ?? {});
+      const reference = parsed.success ? parsed.data.reference : undefined;
+      await storage.updateClaimStatus(id, "under-review", `Complaint filed with the Canadian Transportation Agency${reference ? ` (ref ${reference})` : ""}`);
+      const updated = await storage.updateClaim(id, { ctaFiledAt: new Date() });
+      await storage.addClaimEvent({
+        claimId: id,
+        type: "escalation",
+        message: `Escalated to the CTA${reference ? ` (reference ${reference})` : ""}`,
+        actorEmail: req.user?.email ?? null,
+        metadata: { reference: reference ?? null },
+      });
+      void sendStageEmail(updated, "escalated", { actorEmail: req.user?.email });
+      res.json({ message: "Escalation recorded and passenger notified", claim: updated });
+    } catch (error) {
+      console.error("Escalate error:", error);
+      res.status(500).json({ message: "Failed to record escalation" });
     }
   });
 
@@ -650,6 +784,144 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error exporting to Google Sheets:", error);
       res.status(500).json({ message: "Failed to export to Google Sheets" });
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // Power of Attorney signing (passenger, via signed link or own account)
+  // -------------------------------------------------------------------------
+  const loadClaimForPassenger = async (req: Parameters<RequestHandler>[0]) => {
+    const claimId = req.params.claimId.trim();
+    const token = typeof req.query.token === "string" ? req.query.token : typeof req.body?.token === "string" ? req.body.token : "";
+    const claim = await storage.getClaimByClaimId(claimId);
+    if (!claim) return { claim: undefined, allowed: false };
+    const owns = !!req.user && (req.user.id === claim.userId || req.user.email?.toLowerCase() === claim.email.toLowerCase());
+    const isAdmin = ["junior_admin", "senior_admin"].includes(req.user?.role ?? "user");
+    const allowed = owns || isAdmin || (!!token && verifyClaimToken(claimId, token));
+    return { claim, allowed };
+  };
+
+  app.get("/api/claims/:claimId/poa", async (req, res) => {
+    try {
+      const { claim, allowed } = await loadClaimForPassenger(req);
+      if (!claim) return res.status(404).json({ message: "Claim not found" });
+      if (!allowed) return res.status(403).json({ message: "This link is not valid for this claim" });
+      res.json({
+        claimId: claim.claimId,
+        passengerName: claim.passengerName,
+        email: claim.email,
+        flightNumber: claim.flightNumber,
+        flightDate: claim.flightDate,
+        departureAirport: claim.departureAirport,
+        arrivalAirport: claim.arrivalAirport,
+        compensationAmount: claim.compensationAmount,
+        commissionAmount: claim.commissionAmount,
+        language: claim.language,
+        poaSigned: claim.poaSigned,
+        poaSignedAt: claim.poaSignedAt,
+        version: POA_VERSION,
+      });
+    } catch (error) {
+      console.error("POA info error:", error);
+      res.status(500).json({ message: "Failed to load claim" });
+    }
+  });
+
+  app.post("/api/claims/:claimId/sign", async (req, res) => {
+    try {
+      const { claim, allowed } = await loadClaimForPassenger(req);
+      if (!claim) return res.status(404).json({ message: "Claim not found" });
+      if (!allowed) return res.status(403).json({ message: "This link is not valid for this claim" });
+      if (claim.poaSigned) return res.status(400).json({ message: "This Power of Attorney is already signed", code: "ALREADY_SIGNED" });
+      const parsed = z
+        .object({
+          signature: z.string().startsWith("data:image/png;base64,").max(3 * 1024 * 1024),
+          typedName: z.string().trim().min(2).max(120),
+          agreed: z.literal(true),
+        })
+        .safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "A drawn signature, your typed name and your agreement are required" });
+      }
+
+      const signedAt = new Date();
+      const pdf = await renderPoaPdf(claim, {
+        dataUrl: parsed.data.signature,
+        typedName: parsed.data.typedName,
+        signedAt,
+        ipAddress: req.ip,
+        userAgent: req.get("User-Agent"),
+      });
+      const filename = await storePoaPdf(UPLOADS_DIR, claim.claimId, pdf);
+      const updated = await storage.updateClaim(claim.id, {
+        poaSigned: true,
+        poaSignedAt: signedAt,
+        poaRequested: true,
+        poaDocumentUrl: `/api/admin/uploads/${filename}`,
+      });
+      await consentManager.recordConsent({
+        consentType: "poa",
+        userEmail: claim.email,
+        userName: parsed.data.typedName,
+        claimId: claim.claimId,
+        timestamp: signedAt.toISOString(),
+        ipAddress: req.ip,
+        userAgent: req.get("User-Agent"),
+        documentVersion: POA_VERSION,
+        agreed: true,
+      });
+      await storage.addClaimEvent({
+        claimId: claim.id,
+        type: "poa",
+        message: `Power of Attorney signed electronically by ${parsed.data.typedName}`,
+        actorEmail: claim.email,
+        metadata: { filename, ip: req.ip },
+      });
+      void sendStageEmail(updated, "poa_signed", { attachments: [{ filename, content: pdf, contentType: "application/pdf" }] });
+      res.json({ message: "Power of Attorney signed", poaSigned: true, downloadUrl: `/api/claims/${encodeURIComponent(claim.claimId)}/poa.pdf` });
+    } catch (error) {
+      console.error("POA sign error:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to sign" });
+    }
+  });
+
+  app.get("/api/claims/:claimId/poa.pdf", async (req, res) => {
+    try {
+      const { claim, allowed } = await loadClaimForPassenger(req);
+      if (!claim) return res.status(404).json({ message: "Claim not found" });
+      if (!allowed) return res.status(403).json({ message: "This link is not valid for this claim" });
+      if (!claim.poaSigned) return res.status(404).json({ message: "Not signed yet" });
+      res.setHeader("Content-Disposition", `inline; filename="${poaFileName(claim.claimId)}"`);
+      res.sendFile(path.join(UPLOADS_DIR, poaFileName(claim.claimId)), (error) => {
+        if (error && !res.headersSent) res.status(404).json({ message: "File not found" });
+      });
+    } catch (error) {
+      console.error("POA download error:", error);
+      res.status(500).json({ message: "Failed to load document" });
+    }
+  });
+
+  // Stripe: checkout.session.completed marks the commission paid.
+  app.post("/api/stripe/webhook", async (req, res) => {
+    const rawBody = (req as typeof req & { rawBody?: Buffer }).rawBody;
+    if (!rawBody || !verifyStripeSignature(rawBody, req.get("Stripe-Signature"))) {
+      return res.status(400).json({ message: "Invalid signature" });
+    }
+    try {
+      const event = req.body as { type?: string; data?: { object?: { id?: string; payment_status?: string } } };
+      if (event.type === "checkout.session.completed" && event.data?.object?.id && event.data.object.payment_status === "paid") {
+        const claim = await storage.getClaimByStripeSession(event.data.object.id);
+        if (claim && claim.paymentStatus !== "paid") {
+          const updated = await storage.updateClaim(claim.id, { paymentStatus: "paid", paidAt: new Date() });
+          await storage.updateClaimStatus(claim.id, "paid", "Commission paid through Stripe");
+          await storage.addClaimEvent({ claimId: claim.id, type: "payment", message: "Commission paid through Stripe", metadata: { sessionId: event.data.object.id } });
+          void sendStageEmail({ ...updated, status: "paid" }, "paid");
+        }
+      }
+      res.json({ received: true });
+    } catch (error) {
+      console.error("Stripe webhook error:", error);
+      res.status(500).json({ message: "Webhook processing failed" });
     }
   });
 

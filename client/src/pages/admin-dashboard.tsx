@@ -25,7 +25,16 @@ interface Claim {
   email: string;
   delayDuration?: string | null;
   documentsUrls?: string[] | null;
+  airlineDeadlineAt?: string | null;
+  ctaFiledAt?: string | null;
+  paymentStatus?: string | null;
   createdAt: string;
+}
+
+function isOverdue(claim: Claim): boolean {
+  if (!claim.airlineDeadlineAt || claim.ctaFiledAt) return false;
+  if (["approved", "rejected", "paid"].includes(claim.status)) return false;
+  return new Date(claim.airlineDeadlineAt).getTime() < Date.now();
 }
 
 interface User {
@@ -297,7 +306,10 @@ function AdminDashboardContent() {
                     ) : (
                       sortedClaims.map((claim: Claim) => (
                         <tr key={claim.id}>
-                          <td className="font-mono">{claim.claimId}</td>
+                          <td className="font-mono">
+                            <Link href={`/admin/claims/${claim.id}`} className="underline">{claim.claimId}</Link>
+                            {isOverdue(claim) && <Badge variant="destructive" className="ml-2">Overdue</Badge>}
+                          </td>
                           <td>{claim.passengerName}</td>
                           <td>{claim.flightNumber}</td>
                           <td>{new Date(claim.flightDate).toLocaleDateString()}</td>

@@ -11,7 +11,7 @@ import { useLang, useDynamicT } from "@/i18n";
 import { apiRequest } from "@/lib/queryClient";
 import { getStatusIcon } from "@/components/claim-status";
 import type { Claim } from "@shared/schema";
-import { FolderOpen, MailWarning, Plus } from "lucide-react";
+import { FolderOpen, MailWarning, Plus, PenTool, Download, CreditCard, CheckCircle } from "lucide-react";
 
 export default function MyClaims() {
   const { t, lang } = useLang();
@@ -20,7 +20,8 @@ export default function MyClaims() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: claims = [], isLoading: claimsLoading } = useQuery<Claim[]>({
+  type MyClaim = Claim & { poaSignUrl?: string | null };
+  const { data: claims = [], isLoading: claimsLoading } = useQuery<MyClaim[]>({
     queryKey: ["/api/my-claims"],
     enabled: isAuthenticated,
   });
@@ -31,12 +32,19 @@ export default function MyClaims() {
     onError: (error: Error) => toast({ title: error.message, variant: "destructive" }),
   });
 
-  // Landing here from the verification link
+  // Landing here from the verification link or from Stripe
   useEffect(() => {
-    const verified = new URLSearchParams(window.location.search).get("verified");
+    const params = new URLSearchParams(window.location.search);
+    const verified = params.get("verified");
+    const paid = params.get("paid");
     if (verified === "1") {
       toast({ title: t("my.verifiedToast") });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    }
+    if (paid === "1") toast({ title: t("my.paidToast") });
+    if (paid === "0") toast({ title: t("my.paidCancelled"), variant: "destructive" });
+    if (verified || paid) {
+      queryClient.invalidateQueries({ queryKey: ["/api/my-claims"] });
       window.history.replaceState({}, "", "/my-claims");
     }
   }, [toast, t, queryClient]);
@@ -103,6 +111,32 @@ export default function MyClaims() {
                       {(claim.documentsUrls?.length ?? 0) > 0 && (
                         <p className="text-xs text-muted-foreground">{t("my.documents", { n: claim.documentsUrls!.length })}</p>
                       )}
+                      {(claim.airlineDeadlineAt || claim.ctaFiledAt) && (
+                        <p className="text-xs text-muted-foreground">
+                          {claim.ctaFiledAt ? t("my.escalated") : `${t("my.airlineDeadline")} ${formatDate(claim.airlineDeadlineAt)}`}
+                        </p>
+                      )}
+                      <div className="flex flex-wrap gap-2">
+                        {claim.poaSigned ? (
+                          <>
+                            <span className="text-xs flex items-center gap-1"><CheckCircle className="h-3 w-3 text-green-600" />{t("my.poaSigned")}</span>
+                            <a href={`/api/claims/${encodeURIComponent(claim.claimId)}/poa.pdf`} target="_blank" rel="noreferrer">
+                              <Button size="sm" variant="outline" className="win98-button text-xs"><Download className="h-3 w-3 mr-1" />{t("my.downloadPoa")}</Button>
+                            </a>
+                          </>
+                        ) : claim.poaSignUrl ? (
+                          <a href={claim.poaSignUrl}>
+                            <Button size="sm" className="btn-accent text-xs"><PenTool className="h-3 w-3 mr-1" />{t("my.signPoa")}</Button>
+                          </a>
+                        ) : null}
+                        {claim.paymentStatus === "paid" ? (
+                          <span className="text-xs flex items-center gap-1"><CheckCircle className="h-3 w-3 text-green-600" />{t("my.commissionPaid")}</span>
+                        ) : claim.paymentLinkUrl ? (
+                          <a href={claim.paymentLinkUrl}>
+                            <Button size="sm" className="btn-primary text-xs"><CreditCard className="h-3 w-3 mr-1" />{t("my.payCommission")} (${Number(claim.commissionAmount ?? 0).toFixed(0)})</Button>
+                          </a>
+                        ) : null}
+                      </div>
                       <div className="win98-inset p-2 text-xs">
                         <strong>{t("my.history")}</strong>
                         <ul className="mt-1 space-y-1">

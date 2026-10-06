@@ -27,3 +27,18 @@ export function unsubscribeUrl(email: string): string {
   const params = new URLSearchParams({ email: email.toLowerCase(), sig: signEmail(email) });
   return `${appUrl()}/api/unsubscribe?${params.toString()}`;
 }
+
+/** Token that lets a passenger open their own claim pages (signing) from an email link without an account. */
+export function claimToken(claimId: string): string {
+  return createHmac("sha256", signingSecret()).update(`claim:${claimId}`).digest("hex").slice(0, 32);
+}
+
+export function verifyClaimToken(claimId: string, token: string): boolean {
+  const expected = Buffer.from(claimToken(claimId));
+  const provided = Buffer.from(token);
+  return expected.length === provided.length && timingSafeEqual(expected, provided);
+}
+
+export function signPoaUrl(claimId: string): string {
+  return `${appUrl()}/sign/${encodeURIComponent(claimId)}?token=${claimToken(claimId)}`;
+}

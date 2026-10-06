@@ -77,7 +77,17 @@ export const claims = pgTable("claims", {
   commissionAmount: decimal("commission_amount", { precision: 10, scale: 2 }),
   poaRequested: boolean("poa_requested").default(false),
   poaSigned: boolean("poa_signed").default(false),
+  poaSignedAt: timestamp("poa_signed_at"),
   poaDocumentUrl: text("poa_document_url"),
+  // Lifecycle tracking (APPR: airline has 30 days to answer, then the CTA)
+  airlineContactedAt: timestamp("airline_contacted_at"),
+  airlineDeadlineAt: timestamp("airline_deadline_at"),
+  ctaFiledAt: timestamp("cta_filed_at"),
+  // Commission collection
+  paymentStatus: text("payment_status").default("none"), // none | link_sent | paid
+  paymentLinkUrl: text("payment_link_url"),
+  stripeSessionId: varchar("stripe_session_id", { length: 120 }),
+  paidAt: timestamp("paid_at"),
   // Claim-specific consents (stored per claim)
   poaConsent: boolean("poa_consent").notNull().default(false),
   allClaimConsentsAccepted: boolean("all_claim_consents_accepted").default(false),
@@ -97,6 +107,24 @@ export const claims = pgTable("claims", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+// Everything that happens on a claim: notes, emails, status changes, signatures, payments.
+export const claimEvents = pgTable(
+  "claim_events",
+  {
+    id: serial("id").primaryKey(),
+    claimId: integer("claim_id").notNull(),
+    type: varchar("type", { length: 30 }).notNull(), // note | email | status | letter | escalation | poa | payment | system
+    message: text("message").notNull(),
+    actorEmail: varchar("actor_email"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [index("IDX_claim_events_claim").on(table.claimId)],
+);
+
+export const CLAIM_EVENT_TYPES = ["note", "email", "status", "letter", "escalation", "poa", "payment", "system"] as const;
+export type ClaimEventType = (typeof CLAIM_EVENT_TYPES)[number];
 
 export const faqItems = pgTable("faq_items", {
   id: serial("id").primaryKey(),
@@ -156,6 +184,14 @@ export const insertClaimSchema = createInsertSchema(claims).omit({
   allClaimConsentsAccepted: true,
   userId: true,
   language: true,
+  poaSignedAt: true,
+  airlineContactedAt: true,
+  airlineDeadlineAt: true,
+  ctaFiledAt: true,
+  paymentStatus: true,
+  paymentLinkUrl: true,
+  stripeSessionId: true,
+  paidAt: true,
 });
 
 export const insertFaqSchema = createInsertSchema(faqItems).omit({
@@ -205,5 +241,7 @@ export type InsertFaqItem = z.infer<typeof insertFaqSchema>;
 export type ConsentRecord = typeof consentRecords.$inferSelect;
 export type InsertConsentRecord = z.infer<typeof insertConsentRecordSchema>;
 export type AuthToken = typeof authTokens.$inferSelect;
+export type ClaimEvent = typeof claimEvents.$inferSelect;
+export type InsertClaimEvent = typeof claimEvents.$inferInsert;
 export type RegisterUserInput = z.infer<typeof registerUserSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;

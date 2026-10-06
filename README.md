@@ -64,7 +64,8 @@ issue the TLS certificate. Login cookies are `Secure`, so production must be ser
 | `PAYMENT_INSTRUCTIONS`  | no       | Text in commission invoices                                             |
 | `GOOGLE_SHEETS_ID`, `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` | no | Admin export to Google Sheets |
 | `AIRTABLE_BASE_ID`, `AIRTABLE_API_KEY` | no | Mirror new claims into Airtable                              |
-| `DOCUSIGN_*`            | no       | Power of Attorney e-signature                                           |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | no | Commission payment links; point the Stripe webhook at `/api/stripe/webhook` (event `checkout.session.completed`) |
+| `DOCUSIGN_*`            | no       | Legacy DocuSign integration (the built-in signature replaces it)         |
 | `DATABASE_SSL=false`    | no       | Only for databases without TLS (local)                                  |
 | `CONSENT_FILES=false`   | no       | Skip JSON copies of consent records on read-only disks                  |
 
@@ -99,7 +100,8 @@ should the English ones.
 2. **Claim form** (`/#claims`): 3 steps (flight details, documents, consents). Signed-in users get their name and email prefilled and the claim is attached to their account. Passengers can answer "I don't know" for the reason; a reason that is normally not compensable shows a warning but can still be submitted so the team can verify what the airline really said.
 3. **Server** generates one Claim ID (`YUL-xxxxxxxx-xxxxxx`), computes the compensation from the APPR rules table (delays and cancellations by carrier size; denied boarding $900 / $1,800 / $2,400 for any carrier), flags claims that need the reason verified, stores the claim, records the POA (and optional marketing) consent, then in the background runs the optional AI pre-screen, Airtable mirror and confirmation email.
 4. **Passenger** sees the Claim ID on screen (and by email when SMTP is set), tracks it at `/#track`, and sees all their claims at `/my-claims`.
-5. **Admin** reviews claims, downloads documents, emails the airline, approves/rejects, sends the commission invoice and marks the claim paid.
+5. **Passenger** signs the Power of Attorney on screen (`/sign/:claimId`, link in the confirmation email and on My Claims). The server renders a bilingual PDF, stores it, and emails a copy.
+6. **Admin** opens the claim page (`/admin/claims/:id`): timeline of every note, email, status change, letter, signature and payment; "send to airline" starts the 30-day APPR clock; overdue claims are flagged and can be escalated to the CTA in one click; approve/reject/paid each send a bilingual email; the commission invoice carries a Stripe payment link when Stripe is configured (e-Transfer instructions otherwise) and the webhook marks the claim paid.
 
 The money figures never come from the AI model; they come from
 `shared/appr.ts`, which the calculator, the claim form, the APPR guide page and
@@ -114,6 +116,7 @@ the server all share.
 | `consent_records`     | Audit trail of every consent (type, email, claim, IP, user agent, time)                |
 | `sessions`            | Login sessions                                                                         |
 | `auth_tokens`         | One-time tokens (hashed) for email verification and password reset                     |
+| `claim_events`        | Timeline per claim: notes, emails sent, status changes, letters, escalation, POA, payments |
 | `faq_items`           | FAQ entries (the site shows built-in defaults when the table is empty)                 |
 | `uploads/`            | Uploaded documents on local disk, served to admins only                                |
 | `consent-records/`    | JSON copies of consent records (convenience; the database is the source of truth)      |
@@ -123,6 +126,6 @@ On hosts with ephemeral disks (Railway/Render without a volume) uploaded documen
 ## Known gaps
 
 - Uploaded documents live on local disk (see above).
-- DocuSign: envelopes are created, but the completion callback does not yet link the signed envelope back to the claim.
-- Payments tab is derived from approved/paid claims; there is no separate ledger.
+- Payments tab is derived from approved/paid claims; there is no separate ledger beyond the claim event log.
+- No automatic reminder when an airline deadline passes; the dashboard flags it as overdue, but nobody is emailed.
 - Legal text exists twice (server `consent-manager.ts` for the generated documents, client `consent-modal.tsx` for the on-screen modals) and should be unified.

@@ -13,6 +13,9 @@ import {
   type InsertConsentRecord,
   authTokens,
   type AuthToken,
+  claimEvents,
+  type ClaimEvent,
+  type InsertClaimEvent,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, ilike, or, gte, lte, isNull, gt } from "drizzle-orm";
@@ -50,7 +53,13 @@ export interface IStorage {
   updateClaimCompensation(id: number, compensationAmount: number, commissionAmount: number): Promise<Claim>;
   updateClaimPOA(id: number, poaSigned: boolean, poaDocumentUrl?: string): Promise<Claim>;
   updateClaimEligibility(id: number, validation: EligibilityValidation): Promise<Claim>;
+  updateClaim(id: number, data: Partial<typeof claims.$inferInsert>): Promise<Claim>;
   getAllClaims(): Promise<Claim[]>;
+  getClaimByStripeSession(sessionId: string): Promise<Claim | undefined>;
+
+  // Claim event log
+  addClaimEvent(event: InsertClaimEvent): Promise<ClaimEvent>;
+  getClaimEvents(claimId: number): Promise<ClaimEvent[]>;
 
   // FAQ operations
   getAllFaqs(): Promise<FaqItem[]>;
@@ -239,8 +248,32 @@ export class DatabaseStorage implements IStorage {
     return updatedClaim;
   }
 
+  async updateClaim(id: number, data: Partial<typeof claims.$inferInsert>): Promise<Claim> {
+    const [updatedClaim] = await db
+      .update(claims)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(claims.id, id))
+      .returning();
+    return updatedClaim;
+  }
+
   async getAllClaims(): Promise<Claim[]> {
     return await db.select().from(claims).orderBy(desc(claims.createdAt));
+  }
+
+  async getClaimByStripeSession(sessionId: string): Promise<Claim | undefined> {
+    const [claim] = await db.select().from(claims).where(eq(claims.stripeSessionId, sessionId));
+    return claim;
+  }
+
+  // Claim event log
+  async addClaimEvent(event: InsertClaimEvent): Promise<ClaimEvent> {
+    const [created] = await db.insert(claimEvents).values(event).returning();
+    return created;
+  }
+
+  async getClaimEvents(claimId: number): Promise<ClaimEvent[]> {
+    return await db.select().from(claimEvents).where(eq(claimEvents.claimId, claimId)).orderBy(desc(claimEvents.createdAt));
   }
 
   // FAQ operations

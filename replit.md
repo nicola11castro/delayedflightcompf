@@ -169,6 +169,10 @@ Changelog:
 - October 6, 2026. Phase 1: email verification, password reset, My Claims page, claims linked to accounts, prefilled claim form
 - October 6, 2026. Phase 1: "I don't know" delay reason; inadmissible reasons warn but can be submitted for verification
 - October 6, 2026. Phase 1: denied boarding priced at $900/$1,800/$2,400 by arrival delay; splash screen and invented statistic removed; signed unsubscribe link
+- October 6, 2026. Phase 2: claim event log and admin claim detail page with timeline, notes, 30-day airline deadline, overdue flag and CTA escalation
+- October 6, 2026. Phase 2: bilingual stage emails (received, sent to airline, escalated, approved, rejected, paid, invoice, POA signed) logged on the claim
+- October 6, 2026. Phase 2: built-in Power of Attorney signature pad producing a stored PDF (pdf-lib), emailed to the passenger
+- October 6, 2026. Phase 2: Stripe Checkout payment link for the commission with webhook; e-Transfer fallback
 ```
 
 ## User Preferences
