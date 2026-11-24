@@ -143,6 +143,17 @@ export default function AdminClaim() {
               </div>
             </div>
 
+            {claim.triage && (
+              <div className="win98-panel text-sm space-y-1">
+                <h3 className="font-bold">Intake triage: <Badge variant={claim.triage.result.tier === "strong" ? "default" : claim.triage.result.tier === "ineligible" ? "destructive" : "secondary"}>{claim.triage.result.tier} {claim.triage.result.score}/100</Badge></h3>
+                <div className="text-xs">Recommended: {claim.triage.result.recommendedPath} · {claim.triage.result.partySize} passenger(s) · ${claim.triage.result.perPassenger} each{claim.triage.result.refundRule ? " · refund rule" : ""}</div>
+                <ul className="text-xs list-disc list-inside">{[...claim.triage.result.gates, ...claim.triage.result.reasons].map((c) => <li key={c}>{c}</li>)}</ul>
+                <details className="text-xs"><summary className="cursor-pointer">Answers</summary>
+                  <pre className="whitespace-pre-wrap">{JSON.stringify(claim.triage.answers, null, 1)}</pre>
+                </details>
+              </div>
+            )}
+
             <div className="win98-panel text-sm space-y-2">
               <h3 className="font-bold">Flight investigation ({claim.flightKey})</h3>
               <p className="text-xs text-muted-foreground">Shared with every passenger on this flight. <Link href="/admin#flights" className="underline">All flights</Link></p>

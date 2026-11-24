@@ -100,6 +100,10 @@ export const claims = pgTable("claims", {
     matchesReported?: boolean | null;
     fetchedAt: string;
   }>(),
+  // Intake triage (shared/triage.ts): answers, score and tier
+  partySize: integer("party_size").default(1),
+  triage: jsonb("triage").$type<{ answers: Record<string, unknown>; result: { version: number; score: number; tier: string; recommendedPath: string; reasons: string[]; gates: string[]; perPassenger: number; partySize: number; partyTotal: number; refundRule: boolean } }>(),
+  triageTier: text("triage_tier"),
   // Service level: "managed" (we handle it under mandate) or "kit" (self-serve kit)
   serviceLevel: text("service_level").default("managed"),
   kitPaidAt: timestamp("kit_paid_at"),
@@ -230,6 +234,9 @@ export const insertClaimSchema = createInsertSchema(claims).omit({
   language: true,
   poaSignedAt: true,
   flightData: true,
+  partySize: true,
+  triage: true,
+  triageTier: true,
   kitPaidAt: true,
   kitStripeSessionId: true,
   kitDeadlineReminderAt: true,

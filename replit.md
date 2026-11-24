@@ -179,6 +179,7 @@ Changelog:
 - October 6, 2026. Phase 4: self-serve kit (bilingual demand letter, checklist, countdown, next steps) with configurable fee; service choice after submission
 - October 6, 2026. Phase 4: Québec small-claims file builder (exhibit index, draft claim, hearing script); escalation path CTA vs small claims
 - October 6, 2026. Phase 4: claims grouped by flight with shared investigation notes; daily deadline reminders to the team and kit passengers; bilingual pricing page
+- November 24, 2026. Phase 5: APPR intake triage (hard gates, refund rule, party size, evidence) scored into a tier with a recommended path; shown to passengers and the team
 ```
 
 ## User Preferences

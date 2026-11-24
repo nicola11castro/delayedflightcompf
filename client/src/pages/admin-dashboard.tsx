@@ -28,6 +28,8 @@ interface Claim {
   airlineDeadlineAt?: string | null;
   ctaFiledAt?: string | null;
   paymentStatus?: string | null;
+  triageTier?: string | null;
+  partySize?: number | null;
   createdAt: string;
 }
 
@@ -332,6 +334,7 @@ function AdminDashboardContent() {
                           <td className="font-mono">
                             <Link href={`/admin/claims/${claim.id}`} className="underline">{claim.claimId}</Link>
                             {isOverdue(claim) && <Badge variant="destructive" className="ml-2">Overdue</Badge>}
+                            {claim.triageTier && <Badge variant={claim.triageTier === "strong" ? "default" : claim.triageTier === "ineligible" ? "destructive" : "secondary"} className="ml-2">{claim.triageTier}{(claim.partySize ?? 1) > 1 ? ` ×${claim.partySize}` : ""}</Badge>}
                           </td>
                           <td>{claim.passengerName}</td>
                           <td>{claim.flightNumber}</td>

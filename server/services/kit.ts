@@ -29,7 +29,11 @@ export function demandLetter(claim: Claim): { subject: string; body: string } {
   const reasonLabel = claim.delayReason === "unknown" ? "" : delayReasons.find((r) => r.value === claim.delayReason)?.label ?? claim.delayReason ?? "";
   const denied = claim.issueType === "denied-boarding";
   const today = isoDate(new Date());
-  const amount = money(claim.compensationAmount, fr);
+  const party = claim.partySize && claim.partySize > 1 ? claim.partySize : 1;
+  const perPassenger = money(claim.compensationAmount, fr);
+  const amount = party > 1 && claim.compensationAmount
+    ? (fr ? `${perPassenger} par passager, soit ${money(String(Number(claim.compensationAmount) * party), fr)} pour les ${party} passagers de la réservation` : `${perPassenger} per passenger, i.e. ${money(String(Number(claim.compensationAmount) * party), fr)} for the ${party} passengers on the booking`)
+    : perPassenger;
   const section = denied ? "20" : "19";
 
   if (fr) {

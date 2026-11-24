@@ -20,6 +20,9 @@ import { insertClaimSchema } from "@shared/schema";
 import { ConsentCheckboxes } from "./consent-checkboxes";
 import { delayReasons, bandsForIssue, getReasonStatus, ISSUE_TYPES } from "@shared/appr";
 import { ApprValidationModal } from "./appr-validation-modal";
+import { TriageStep } from "./triage-step";
+import { TRIAGE_DEFAULTS, type TriageAnswers, type TriageResult } from "@shared/triage";
+import type { TranslationKey } from "@/i18n/en";
 import { z } from "zod";
 
 const claimFormSchema = insertClaimSchema.extend({
@@ -34,7 +37,10 @@ interface SubmittedClaim {
   compensationAmount?: string | null;
   estimate?: { needsReview?: boolean };
   poaSignUrl?: string | null;
+  triageResult?: TriageResult;
 }
+
+const TOTAL_STEPS = 4;
 
 export function ClaimForm() {
   const { t, lang } = useLang();
@@ -46,6 +52,7 @@ export function ClaimForm() {
   const [submittedClaim, setSubmittedClaim] = useState<SubmittedClaim | null>(null);
   const [prefilled, setPrefilled] = useState(false);
   const [scanState, setScanState] = useState<string | null>(null);
+  const [triage, setTriage] = useState<TriageAnswers>(TRIAGE_DEFAULTS);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -138,6 +145,7 @@ export function ClaimForm() {
         poaConsent: data.allClaimConsentsAccepted,
         emailMarketingConsentClaim: data.emailMarketingConsentClaim || false,
         language: lang,
+        triage: JSON.stringify(triage),
       };
 
       const formData = new FormData();
@@ -155,6 +163,7 @@ export function ClaimForm() {
       form.reset();
       setPrefilled(false);
       setUploadedFiles([]);
+      setTriage(TRIAGE_DEFAULTS);
       setCurrentStep(1);
       queryClient.invalidateQueries({ queryKey: ["/api/my-claims"] });
     },
@@ -197,15 +206,15 @@ export function ClaimForm() {
       const valid = await form.trigger(step1Fields);
       if (!valid) return;
     }
-    if (currentStep < 3) {
+    if (currentStep < TOTAL_STEPS) {
       setCurrentStep(currentStep + 1);
       window.dispatchEvent(new CustomEvent("clippyTrigger", { detail: { trigger: `step-${currentStep + 1}`, context: "claim-form" } }));
     }
   };
 
   const prevStep = () => currentStep > 1 && setCurrentStep(currentStep - 1);
-  const progress = (currentStep / 3) * 100;
-  const stepLabel = currentStep === 1 ? t("claim.step1") : currentStep === 2 ? t("claim.step2") : t("claim.step3");
+  const progress = (currentStep / TOTAL_STEPS) * 100;
+  const stepLabel = currentStep === 1 ? t("claim.step1") : currentStep === 2 ? t("triage.title") : currentStep === 3 ? t("claim.step2") : t("claim.step3");
 
   // Validation messages are stored as keys so they can be translated.
   const message = (msg?: string) => (msg && msg.includes(".") && !msg.includes(" ") ? dt("", msg, msg) : msg);
@@ -230,8 +239,41 @@ export function ClaimForm() {
               <p className="text-xs mt-2">{t("claim.estimate", { amount: `$${Number(submittedClaim.compensationAmount).toFixed(0)}` })}</p>
             )}
             {submittedClaim.estimate?.needsReview && <p className="text-xs mt-1 text-muted-foreground">{t("claim.reviewPending")}</p>}
+
+            {submittedClaim.triageResult && (() => {
+              const r = submittedClaim.triageResult;
+              return (
+                <div className={`win98-inset p-3 mt-3 text-xs space-y-1 ${r.tier === "ineligible" ? "bg-red-50 dark:bg-red-900/20" : r.tier === "strong" ? "bg-green-50 dark:bg-green-900/20" : ""}`}>
+                  <strong className="text-sm">{t(`result.${r.tier}` as TranslationKey)}</strong>
+                  {r.partySize > 1 && r.perPassenger > 0 && <div>{t("result.party", { n: r.partySize, amount: `$${r.perPassenger}`, total: r.partyTotal })}</div>}
+                  <div>{r.recommendedPath === "managed" ? t("result.recommendManaged") : r.recommendedPath === "kit" ? t("result.recommendKit") : t("result.recommendNone")}</div>
+                  <ul className="list-disc list-inside">
+                    {[...r.gates, ...r.reasons].map((code) => <li key={code}>{t(code as TranslationKey)}</li>)}
+                  </ul>
+                </div>
+              );
+            })()}
+
+            {submittedClaim.triageResult?.tier !== "ineligible" && (
+              <>
+                <h4 className="font-bold text-sm mt-4 mb-2">{t("choice.title")}</h4>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div className={`win98-inset p-3 space-y-2 ${submittedClaim.triageResult?.recommendedPath === "kit" ? "ring-2 ring-accent" : ""}`}>
+                    <strong className="text-sm">{t("choice.kitTitle")}</strong>
+                    <p className="text-xs">{t("choice.kitLead")}</p>
+                    <Link href={`/kit/${encodeURIComponent(submittedClaim.claimId)}`}><Button type="button" size="sm" className="btn-accent text-xs">{t("choice.kitButton")}</Button></Link>
+                  </div>
+                  <div className={`win98-inset p-3 space-y-2 ${submittedClaim.triageResult?.recommendedPath === "managed" ? "ring-2 ring-accent" : ""}`}>
+                    <strong className="text-sm">{t("choice.managedTitle")}</strong>
+                    <p className="text-xs">{t("choice.managedLead")}</p>
+                    <a href={submittedClaim.poaSignUrl ?? "/my-claims"}><Button type="button" size="sm" className="btn-primary text-xs">{t("choice.managedButton")}</Button></a>
+                  </div>
+                </div>
+              </>
+            )}
+
             <div className="flex gap-2 mt-3">
-              <Button type="button" className="btn-primary text-xs" onClick={() => document.getElementById("track")?.scrollIntoView({ behavior: "smooth" })}>
+              <Button type="button" variant="outline" className="btn-outline text-xs" onClick={() => document.getElementById("track")?.scrollIntoView({ behavior: "smooth" })}>
                 {t("claim.track")}
               </Button>
               <Button type="button" variant="outline" className="btn-outline text-xs" onClick={() => setSubmittedClaim(null)}>
@@ -245,7 +287,7 @@ export function ClaimForm() {
           <CardHeader>
             <div className="mb-4">
               <div className="flex items-center justify-between mb-4">
-                <span className="text-sm font-medium text-primary">{t("claim.step", { n: currentStep })}</span>
+                <span className="text-sm font-medium text-primary">{t("claim.step", { n: currentStep }).replace(/3(?!\d)/, String(TOTAL_STEPS))}</span>
                 <span className="text-sm text-muted-foreground">{stepLabel}</span>
               </div>
               <Progress value={progress} className="h-2" />
@@ -391,7 +433,9 @@ export function ClaimForm() {
                   </div>
                 )}
 
-                {currentStep === 2 && (
+                {currentStep === 2 && <TriageStep value={triage} onChange={setTriage} issueType={issueType} />}
+
+                {currentStep === 3 && (
                   <div className="space-y-6">
                     <h3 className="font-semibold text-lg">{t("claim.docs")}</h3>
                     <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary transition-colors" style={{ borderColor: "hsl(var(--border))" }}>
@@ -423,7 +467,7 @@ export function ClaimForm() {
                   </div>
                 )}
 
-                {currentStep === 3 && (
+                {currentStep === 4 && (
                   <div className="space-y-6">
                     <div className="commission-highlight">
                       <h4 className="font-semibold text-lg mb-3">
@@ -467,7 +511,7 @@ export function ClaimForm() {
                     <Button type="button" variant="outline" onClick={prevStep}>{t("claim.previous")}</Button>
                   )}
                   <div className="ml-auto">
-                    {currentStep < 3 ? (
+                    {currentStep < TOTAL_STEPS ? (
                       <Button type="button" onClick={nextStep}>{t("claim.next")}</Button>
                     ) : (
                       <Button type="submit" className="btn-primary" disabled={submitClaimMutation.isPending}>

@@ -13,6 +13,8 @@ import { renderKitPdf, kitFileName, demandLetter } from "./services/kit";
 import { renderSmallClaimsPdf, smallClaimsFileName } from "./services/small-claims";
 import { runReminders } from "./services/reminders";
 import { flightKeyFor } from "@shared/schema";
+import { parseTriage, scoreTriage, TRIAGE_DEFAULTS } from "@shared/triage";
+import { getAirlineByFlightNumber } from "@shared/appr";
 import { sendStageEmail } from "./services/claim-emails";
 import { renderPoaPdf, storePoaPdf, poaFileName, POA_VERSION } from "./services/poa";
 import { createCommissionCheckout, createKitCheckout, isStripeConfigured, verifyStripeSignature } from "./services/stripe";
@@ -99,6 +101,7 @@ const claimSubmissionSchema = insertClaimSchema
     delayReason: z.string().min(1, "Delay reason is required"),
     language: z.enum(["en", "fr"]).optional(),
     serviceLevel: z.enum(["managed", "kit"]).optional(),
+    triage: z.string().max(5000).optional(), // JSON of TriageAnswers (multipart sends text)
     mealVouchers: z.string().trim().max(100).optional(),
     poaConsent: formBoolean.refine((value) => value === true, {
       message: "Power of Attorney consent is required to proceed with claim",
@@ -368,25 +371,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         mealVouchers: data.mealVouchers,
       });
 
-      const { language, serviceLevel, ...claimFields } = data;
+      // Intake triage: hard gates, amount modifiers (refund rule, party size) and odds.
+      let triageAnswers = TRIAGE_DEFAULTS;
+      if (data.triage) {
+        try { triageAnswers = parseTriage(JSON.parse(data.triage)) ?? TRIAGE_DEFAULTS; } catch { /* keep defaults */ }
+      }
+      const airlineMatch = getAirlineByFlightNumber(data.flightNumber);
+      const triage = scoreTriage(triageAnswers, {
+        issueType: data.issueType,
+        carrierSize: estimate.carrierSize,
+        carrierKnown: !!airlineMatch,
+        delayDuration: estimate.delayDuration,
+        delayReason: data.delayReason,
+      });
+      // The triage amount is authoritative (it knows about refunds and gates); keep the voucher deduction.
+      const perPassenger = Math.max(0, triage.perPassenger - (triage.perPassenger > 0 ? estimate.mealVoucherDeduction : 0));
+      const commissionPerPassenger = Math.round(perPassenger * 0.15);
+
+      const { language, serviceLevel, triage: _triageRaw, ...claimFields } = data;
       const claim = await storage.createClaim(
         {
           ...claimFields,
           userId: req.user?.id ?? null,
           language: language ?? "en",
           serviceLevel: serviceLevel ?? "managed",
+          partySize: triage.partySize,
+          triage: { answers: triageAnswers as unknown as Record<string, unknown>, result: triage },
+          triageTier: triage.tier,
           poaRequested: data.poaRequested ?? false,
           emailMarketingConsentClaim: data.emailMarketingConsentClaim ?? false,
           allClaimConsentsAccepted: data.poaConsent,
           documentsUrls: files.map((file) => `/api/admin/uploads/${file.filename}`),
-          compensationAmount: estimate.eligible ? estimate.compensationAmount.toFixed(2) : null,
-          commissionAmount: estimate.eligible ? estimate.commissionAmount.toFixed(2) : null,
+          compensationAmount: perPassenger > 0 ? perPassenger.toFixed(2) : null,
+          commissionAmount: perPassenger > 0 ? commissionPerPassenger.toFixed(2) : null,
           eligibilityValidation: {
-            isEligible: estimate.eligible,
-            confidence: reasonStatus === "admissible" ? (estimate.carrierKnown ? 0.9 : 0.6) : 0.3,
-            reason: estimate.reason,
+            isEligible: triage.tier !== "ineligible" && perPassenger > 0,
+            confidence: triage.score / 100,
+            reason: `${estimate.reason} Triage: ${triage.tier} (${triage.score}/100)${triage.gates.length ? `; gates: ${triage.gates.join(", ")}` : ""}${triage.partySize > 1 ? `; ${triage.partySize} passengers` : ""}${triage.refundRule ? "; refund chosen, flat amount applies" : ""}.`,
             source: "rules",
-            needsReview: estimate.needsReview,
+            needsReview: estimate.needsReview || triage.tier === "medium",
           },
         },
         claimId,
@@ -395,9 +418,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.addClaimEvent({
         claimId: claim.id,
         type: "system",
-        message: `Claim submitted (${data.issueType}, ${data.delayDuration}h, reason: ${data.delayReason}). ${estimate.reason}`,
+        message: `Claim submitted (${data.issueType}, ${data.delayDuration}h, reason: ${data.delayReason}, ${triage.partySize} passenger(s)). Triage ${triage.tier} ${triage.score}/100: ${[...triage.gates, ...triage.reasons].join(", ")}. ${estimate.reason}`,
         actorEmail: req.user?.email ?? null,
-        metadata: { estimate, needsReview: estimate.needsReview },
+        metadata: { estimate, triage, needsReview: estimate.needsReview },
       });
 
       const consentBase = {
@@ -415,7 +438,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await consentManager.recordConsent({ ...consentBase, consentType: "emailMarketing" });
       }
 
-      res.status(201).json({ ...claim, estimate, poaSignUrl: signPoaUrl(claim.claimId) });
+      res.status(201).json({ ...claim, estimate, triageResult: triage, poaSignUrl: signPoaUrl(claim.claimId) });
 
       void runClaimFollowUps(claim, estimate);
     } catch (error) {
