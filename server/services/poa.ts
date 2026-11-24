@@ -7,6 +7,7 @@ import fs from "fs";
 import path from "path";
 import type { Claim } from "@shared/schema";
 import { BRAND_NAME, SUPPORT_EMAIL } from "@shared/brand";
+import { pricingConfig } from "../config";
 
 export const POA_VERSION = "1.0";
 
@@ -62,6 +63,7 @@ export async function renderPoaPdf(
   const commission = claim.commissionAmount ? Number(claim.commissionAmount) : Math.round(compensation * 0.15);
   const net = compensation - commission;
   const money = (v: number) => (fr ? `${v.toFixed(0)} $ CA` : `$${v.toFixed(0)} CAD`);
+  const escalated = pricingConfig().escalatedCommissionPct;
 
   draw(fr ? "PROCURATION" : "POWER OF ATTORNEY", { size: 18, font: bold, gap: 2 });
   draw(fr ? `Autorisation de réclamation d'indemnisation de vol – ${BRAND_NAME}` : `Flight compensation claim authorization – ${BRAND_NAME}`, { size: 11, gap: 10 });
@@ -79,8 +81,8 @@ export async function renderPoaPdf(
   draw(fr ? "2. Commission" : "2. Commission", { font: bold });
   draw(
     fr
-      ? `${BRAND_NAME} prélève une commission de 15 % uniquement sur l'indemnisation effectivement obtenue (estimation : indemnisation ${money(compensation)}, commission ${money(commission)}, montant qui me revient ${money(net)}). Aucuns frais ne sont dus si la réclamation échoue. Si la compagnie me paie directement, je m'engage à régler la commission dans les 14 jours suivant la facture.`
-      : `${BRAND_NAME} charges a 15% commission only on compensation actually recovered (estimate: compensation ${money(compensation)}, commission ${money(commission)}, amount due to me ${money(net)}). No fee is owed if the claim is unsuccessful. If the airline pays me directly, I agree to pay the commission within 14 days of the invoice.`,
+      ? `${BRAND_NAME} prélève une commission de 15 % uniquement sur l'indemnisation effectivement obtenue (estimation : indemnisation ${money(compensation)}, commission ${money(commission)}, montant qui me revient ${money(net)}). Aucuns frais ne sont dus si la réclamation échoue. Si la compagnie me paie directement, je m'engage à régler la commission dans les 14 jours suivant la facture.${escalated ? ` Si ${BRAND_NAME} doit porter la réclamation devant l'Office des transports du Canada ou un tribunal, la commission est de ${escalated} % de l'indemnisation obtenue, toujours uniquement en cas de succès.` : ""}`
+      : `${BRAND_NAME} charges a 15% commission only on compensation actually recovered (estimate: compensation ${money(compensation)}, commission ${money(commission)}, amount due to me ${money(net)}). No fee is owed if the claim is unsuccessful. If the airline pays me directly, I agree to pay the commission within 14 days of the invoice.${escalated ? ` If ${BRAND_NAME} must take the claim to the Canadian Transportation Agency or a court, the commission is ${escalated}% of the compensation recovered, still only if successful.` : ""}`,
   );
   draw(fr ? "3. Durée et révocation" : "3. Duration and revocation", { font: bold });
   draw(
