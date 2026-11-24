@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Search, Mail, CheckCircle, XCircle, DollarSign, Users, FileText, MessageSquare } from "lucide-react";
+import { Search, Mail, CheckCircle, XCircle, DollarSign, Users, FileText, MessageSquare, Plane } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { Link } from "wouter";
 
 interface Claim {
   id: number;
@@ -16,33 +18,62 @@ interface Claim {
   flightNumber: string;
   flightDate: string;
   status: string;
-  compensationAmount?: number;
-  commissionAmount?: number;
-  poaRequested: boolean;
-  poaSigned: boolean;
+  compensationAmount?: string | number | null;
+  commissionAmount?: string | number | null;
+  poaRequested: boolean | null;
+  poaSigned: boolean | null;
   email: string;
-  delayDuration?: string;
+  delayDuration?: string | null;
+  documentsUrls?: string[] | null;
+  airlineDeadlineAt?: string | null;
+  ctaFiledAt?: string | null;
+  paymentStatus?: string | null;
+  triageTier?: string | null;
+  partySize?: number | null;
   createdAt: string;
+}
+
+function isOverdue(claim: Claim): boolean {
+  if (!claim.airlineDeadlineAt || claim.ctaFiledAt) return false;
+  if (["approved", "rejected", "paid"].includes(claim.status)) return false;
+  return new Date(claim.airlineDeadlineAt).getTime() < Date.now();
 }
 
 interface User {
   id: string;
   email: string;
-  firstName?: string;
-  lastName?: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  role?: string | null;
+  emailMarketingConsent?: boolean | null;
   createdAt: string;
+}
+
+interface FlightGroup {
+  flightKey: string;
+  flightNumber: string;
+  flightDate: string;
+  count: number;
+  statuses: Record<string, number>;
+  needsReview: number;
+  totalCompensation: number;
+  flightData: { delayMinutes?: number | null; status?: string; airlineName?: string } | null;
+  flightCase: { cause?: string | null; causeStatus?: string | null } | null;
+  claims: { id: number; claimId: string; passengerName: string; status: string; delayReason?: string | null }[];
 }
 
 interface Payment {
   id: number;
   claimId: string;
+  passengerName: string;
+  email: string;
   compensationAmount: number;
   commissionAmount: number;
   status: string;
   paymentMethod?: string;
 }
 
-export default function AdminDashboard() {
+function AdminDashboardContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState<string>("createdAt");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
@@ -51,21 +82,29 @@ export default function AdminDashboard() {
   
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user: currentUser, isSeniorAdmin } = useAuth();
 
   // Fetch claims
-  const { data: claims = [], isLoading: claimsLoading } = useQuery({
+  const { data: claims = [], isLoading: claimsLoading } = useQuery<Claim[]>({
     queryKey: ["/api/admin/claims"],
     retry: false,
   });
 
   // Fetch users
-  const { data: users = [], isLoading: usersLoading } = useQuery({
+  const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ["/api/admin/users"],
+    retry: false,
+    enabled: isSeniorAdmin,
+  });
+
+  // Claims grouped by flight
+  const { data: flights = [], isLoading: flightsLoading } = useQuery<FlightGroup[]>({
+    queryKey: ["/api/admin/flights"],
     retry: false,
   });
 
   // Fetch payments
-  const { data: payments = [], isLoading: paymentsLoading } = useQuery({
+  const { data: payments = [], isLoading: paymentsLoading } = useQuery<Payment[]>({
     queryKey: ["/api/admin/payments"],
     retry: false,
   });
@@ -73,10 +112,7 @@ export default function AdminDashboard() {
   // Update claim status mutation
   const updateClaimMutation = useMutation({
     mutationFn: async ({ claimId, status, notes }: { claimId: number; status: string; notes?: string }) => {
-      return await apiRequest(`/api/admin/claims/${claimId}/status`, {
-        method: "PATCH",
-        body: { status, notes },
-      });
+      return await apiRequest("PATCH", `/api/admin/claims/${claimId}/status`, { status, notes });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/claims"] });
@@ -85,10 +121,10 @@ export default function AdminDashboard() {
         description: "Claim status updated successfully",
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
-        description: "Failed to update claim status",
+        description: error.message || "Failed to update claim status",
         variant: "destructive",
       });
     },
@@ -97,20 +133,20 @@ export default function AdminDashboard() {
   // Send email to airline mutation
   const emailAirlineMutation = useMutation({
     mutationFn: async (claimId: number) => {
-      return await apiRequest(`/api/admin/claims/${claimId}/email-airline`, {
-        method: "POST",
+      const response = await apiRequest("POST", `/api/admin/claims/${claimId}/email-airline`);
+      return response.json() as Promise<{ message: string }>;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/claims"] });
+      toast({
+        title: "Claim letter sent",
+        description: data.message,
       });
     },
-    onSuccess: () => {
+    onError: (error: Error) => {
       toast({
-        title: "Success",
-        description: "Email sent to airline successfully",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to send email to airline",
+        title: "Could not send claim letter",
+        description: error.message,
         variant: "destructive",
       });
     },
@@ -119,26 +155,53 @@ export default function AdminDashboard() {
   // Send marketing email mutation
   const sendMarketingEmailMutation = useMutation({
     mutationFn: async ({ subject, message }: { subject: string; message: string }) => {
-      return await apiRequest("/api/admin/marketing/send", {
-        method: "POST",
-        body: { subject, message },
-      });
+      const response = await apiRequest("POST", "/api/admin/marketing/send", { subject, message });
+      return response.json() as Promise<{ message: string }>;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/marketing"] });
+    onSuccess: (data) => {
       setEmailSubject("");
       setEmailMessage("");
       toast({
-        title: "Success",
-        description: "Marketing email sent successfully",
+        title: "Campaign sent",
+        description: data.message,
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
-        title: "Error",
-        description: "Failed to send marketing email",
+        title: "Could not send campaign",
+        description: error.message,
         variant: "destructive",
       });
+    },
+  });
+
+  // Send commission invoice mutation
+  const sendInvoiceMutation = useMutation({
+    mutationFn: async (claimId: number) => {
+      const response = await apiRequest("POST", `/api/admin/claims/${claimId}/invoice`);
+      return response.json() as Promise<{ message: string }>;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/claims"] });
+      toast({ title: "Invoice sent", description: data.message });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Could not send invoice", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Change a user's role (senior admin only)
+  const updateRoleMutation = useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
+      const response = await apiRequest("PUT", `/api/admin/users/${userId}/role`, { role });
+      return response.json() as Promise<User>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({ title: "Role updated" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Could not update role", description: error.message, variant: "destructive" });
     },
   });
 
@@ -180,11 +243,11 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-background">
       {/* Windows 98 Style Title Bar */}
       <div className="win98-title-bar flex justify-between items-center">
-        <span>FlightClaim Pro - Admin Dashboard</span>
-        <div className="flex gap-2">
-          <button className="px-2 py-1 text-xs">_</button>
-          <button className="px-2 py-1 text-xs">□</button>
-          <button className="px-2 py-1 text-xs">×</button>
+        <span>DelayedFlightComp - Admin Dashboard</span>
+        <div className="flex gap-3 items-center text-xs">
+          <span>{currentUser?.email} ({currentUser?.role})</span>
+          <Link href="/" className="underline">Site</Link>
+          <a href="/api/logout" className="underline">Logout</a>
         </div>
       </div>
 
@@ -202,11 +265,15 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <Tabs defaultValue="claims" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4 win98-border">
+        <Tabs defaultValue={window.location.hash === "#flights" ? "flights" : "claims"} className="space-y-4">
+          <TabsList className="grid w-full grid-cols-5 win98-border">
             <TabsTrigger value="claims" className="win98-button">
               <FileText className="w-4 h-4 mr-2" />
               Claims
+            </TabsTrigger>
+            <TabsTrigger value="flights" className="win98-button">
+              <Plane className="w-4 h-4 mr-2" />
+              By flight
             </TabsTrigger>
             <TabsTrigger value="users" className="win98-button">
               <Users className="w-4 h-4 mr-2" />
@@ -264,7 +331,11 @@ export default function AdminDashboard() {
                     ) : (
                       sortedClaims.map((claim: Claim) => (
                         <tr key={claim.id}>
-                          <td className="font-mono">{claim.claimId}</td>
+                          <td className="font-mono">
+                            <Link href={`/admin/claims/${claim.id}`} className="underline">{claim.claimId}</Link>
+                            {isOverdue(claim) && <Badge variant="destructive" className="ml-2">Overdue</Badge>}
+                            {claim.triageTier && <Badge variant={claim.triageTier === "strong" ? "default" : claim.triageTier === "ineligible" ? "destructive" : "secondary"} className="ml-2">{claim.triageTier}{(claim.partySize ?? 1) > 1 ? ` ×${claim.partySize}` : ""}</Badge>}
+                          </td>
                           <td>{claim.passengerName}</td>
                           <td>{claim.flightNumber}</td>
                           <td>{new Date(claim.flightDate).toLocaleDateString()}</td>
@@ -313,11 +384,17 @@ export default function AdminDashboard() {
                                 size="sm"
                                 variant="outline"
                                 className="win98-button"
+                                title="Email claim letter to the airline"
                                 onClick={() => emailAirlineMutation.mutate(claim.id)}
                                 disabled={emailAirlineMutation.isPending}
                               >
                                 <Mail className="w-3 h-3" />
                               </Button>
+                              {(claim.documentsUrls ?? []).map((url, index) => (
+                                <a key={url} href={url} target="_blank" rel="noreferrer" className="text-xs underline self-center">
+                                  Doc {index + 1}
+                                </a>
+                              ))}
                             </div>
                           </td>
                         </tr>
@@ -326,6 +403,49 @@ export default function AdminDashboard() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          </TabsContent>
+
+          {/* By flight */}
+          <TabsContent value="flights" className="space-y-4">
+            <div className="win98-dialog p-4">
+              <h2 className="text-lg font-bold mb-1">Claims by flight</h2>
+              <p className="text-xs text-muted-foreground mb-4">One investigation per disrupted flight, reused for every passenger on it. Open any claim to record the cause.</p>
+              {flightsLoading ? (
+                <p className="text-sm">Loading...</p>
+              ) : flights.length === 0 ? (
+                <p className="text-sm">No claims yet</p>
+              ) : (
+                <div className="space-y-3">
+                  {flights.map((flight) => (
+                    <div key={flight.flightKey} className="win98-border p-3 text-sm">
+                      <div className="flex flex-wrap justify-between gap-2">
+                        <div>
+                          <strong>{flight.flightNumber}</strong> · {flight.flightDate} · {flight.flightData?.airlineName ?? ""}{" "}
+                          <Badge variant="outline">{flight.count} claim{flight.count > 1 ? "s" : ""}</Badge>
+                          {flight.needsReview > 0 && <Badge variant="secondary" className="ml-1">{flight.needsReview} need review</Badge>}
+                        </div>
+                        <div className="text-xs">
+                          {Object.entries(flight.statuses).map(([status, n]) => <span key={status} className="mr-2">{status}: {n}</span>)}
+                          · ${flight.totalCompensation.toFixed(0)} at stake
+                        </div>
+                      </div>
+                      <div className="text-xs mt-1">
+                        {flight.flightData?.delayMinutes != null && <span className="mr-3">Provider delay: {Math.round(flight.flightData.delayMinutes / 6) / 10}h ({flight.flightData.status})</span>}
+                        Investigation: <Badge variant={flight.flightCase?.causeStatus === "admissible" ? "default" : flight.flightCase?.causeStatus === "contested" ? "destructive" : "outline"}>{flight.flightCase?.causeStatus ?? "not started"}</Badge>
+                        {flight.flightCase?.cause && <span className="ml-2">{flight.flightCase.cause}</span>}
+                      </div>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {flight.claims.map((c) => (
+                          <Link key={c.id} href={`/admin/claims/${c.id}`} className="underline text-xs">
+                            {c.passengerName} ({c.status})
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </TabsContent>
 
@@ -363,20 +483,24 @@ export default function AdminDashboard() {
                           <td>{user.email}</td>
                           <td>{new Date(user.createdAt).toLocaleDateString()}</td>
                           <td>
-                            <Badge variant="default">Yes</Badge>
+                            <Badge variant={user.emailMarketingConsent ? "default" : "outline"}>
+                              {user.emailMarketingConsent ? "Yes" : "No"}
+                            </Badge>
                           </td>
                           <td>
                             {claims.filter((claim: Claim) => claim.email === user.email).length}
                           </td>
                           <td>
-                            <div className="flex gap-2">
-                              <Button size="sm" variant="outline" className="win98-button">
-                                Edit User
-                              </Button>
-                              <Button size="sm" variant="destructive" className="win98-button">
-                                Delete User
-                              </Button>
-                            </div>
+                            <select
+                              className="win98-input text-xs"
+                              value={user.role ?? "user"}
+                              disabled={updateRoleMutation.isPending || user.id === currentUser?.id}
+                              onChange={(e) => updateRoleMutation.mutate({ userId: user.id, role: e.target.value })}
+                            >
+                              <option value="user">user</option>
+                              <option value="junior_admin">junior_admin</option>
+                              <option value="senior_admin">senior_admin</option>
+                            </select>
                           </td>
                         </tr>
                       ))
@@ -396,7 +520,7 @@ export default function AdminDashboard() {
                   <thead>
                     <tr>
                       <th>Claim ID</th>
-                      <th>Passenger ID</th>
+                      <th>Passenger</th>
                       <th>Compensation</th>
                       <th>Commission ($105)</th>
                       <th>Invoice Status</th>
@@ -417,7 +541,7 @@ export default function AdminDashboard() {
                       payments.map((payment: Payment) => (
                         <tr key={payment.id}>
                           <td className="font-mono">{payment.claimId}</td>
-                          <td>USER-{payment.id}</td>
+                          <td>{payment.passengerName}</td>
                           <td>${payment.compensationAmount}</td>
                           <td>${payment.commissionAmount}</td>
                           <td>
@@ -428,11 +552,23 @@ export default function AdminDashboard() {
                           <td>{payment.paymentMethod || "POA"}</td>
                           <td>
                             <div className="flex gap-2">
-                              <Button size="sm" variant="outline" className="win98-button">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="win98-button"
+                                onClick={() => sendInvoiceMutation.mutate(payment.id)}
+                                disabled={sendInvoiceMutation.isPending || payment.status === "paid"}
+                              >
                                 Send Invoice
                               </Button>
-                              <Button size="sm" variant="default" className="win98-button">
-                                Confirm Payment
+                              <Button
+                                size="sm"
+                                variant="default"
+                                className="win98-button"
+                                onClick={() => updateClaimMutation.mutate({ claimId: payment.id, status: "paid" })}
+                                disabled={updateClaimMutation.isPending || payment.status === "paid"}
+                              >
+                                {payment.status === "paid" ? "Paid" : "Confirm Payment"}
                               </Button>
                             </div>
                           </td>
@@ -508,4 +644,41 @@ export default function AdminDashboard() {
       <Toaster />
     </div>
   );
+}
+
+/** Gate: only junior/senior admins see the dashboard; everyone else gets a clear next step. */
+export default function AdminDashboard() {
+  const { isLoading, isAuthenticated, isAdmin, user } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="win98-panel p-6 text-sm">Checking your session...</div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="win98-panel p-6 max-w-md space-y-3 text-sm">
+          <h1 className="font-bold">Admin access required</h1>
+          {isAuthenticated ? (
+            <p>
+              You are signed in as <strong>{user?.email}</strong>, which does not have admin rights. Ask a senior
+              admin to change your role, or visit <Link href="/admin/setup" className="underline">admin setup</Link>.
+            </p>
+          ) : (
+            <p>
+              Please <Link href="/login" className="underline">sign in</Link> with an admin account to open the
+              dashboard.
+            </p>
+          )}
+          <Link href="/" className="underline text-xs">Back to site</Link>
+        </div>
+      </div>
+    );
+  }
+
+  return <AdminDashboardContent />;
 }

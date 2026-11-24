@@ -1,327 +1,457 @@
-import type { Express } from "express";
+import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
+import fs from "fs";
+import path from "path";
+import { createHash, randomBytes, randomUUID } from "crypto";
+import multer from "multer";
+import { z } from "zod";
 import { storage } from "./storage";
-import { insertClaimSchema, insertFaqSchema } from "@shared/schema";
+import { insertClaimSchema, CLAIM_STATUSES, USER_ROLES, type Claim } from "@shared/schema";
+import { estimateCompensation, getReasonStatus, isDelayBand, bandsForIssue, ISSUE_TYPES, type CompensationEstimate } from "@shared/appr";
+import { verifyEmailSignature, verifyClaimToken, signPoaUrl, pricingConfig, appUrl } from "./config";
+import { renderKitPdf, kitFileName, demandLetter } from "./services/kit";
+import { renderSmallClaimsPdf, smallClaimsFileName } from "./services/small-claims";
+import { runReminders } from "./services/reminders";
+import { flightKeyFor } from "@shared/schema";
+import { parseTriage, scoreTriage, TRIAGE_DEFAULTS } from "@shared/triage";
+import { getAirlineByFlightNumber } from "@shared/appr";
+import { sendStageEmail } from "./services/claim-emails";
+import { renderPoaPdf, storePoaPdf, poaFileName, POA_VERSION } from "./services/poa";
+import { createCommissionCheckout, createKitCheckout, isStripeConfigured, verifyStripeSignature } from "./services/stripe";
+import { lookupFlight, isFlightLookupConfigured, offlineFlightHint, normalizeFlightNumber } from "./services/flight-data";
+import { extractBoardingPass, isBoardingPassAiConfigured } from "./services/boarding-pass";
+import { isAiConfigured } from "./services/openai";
 import { validateClaimEligibility, handleChatbotQuery, generateCommissionExplanation } from "./services/openai";
 import { airtableService } from "./services/airtable";
 import { docusignService } from "./services/docusign";
 import { emailService } from "./services/email";
 import { googleSheetsService } from "./services/google-sheets";
 import { consentManager } from "./services/consent-manager";
-import { createHash } from 'crypto';
-import { setupAuth, isAuthenticated } from "./replitAuth";
-import multer from "multer";
-import path from "path";
+import {
+  setupAuth,
+  isAuthenticated,
+  isJuniorAdmin,
+  isSeniorAdmin,
+  isConfiguredAdmin,
+  adminEmails,
+  toPublicUser,
+} from "./auth";
 
-// Configure multer for file uploads
+// ---------------------------------------------------------------------------
+// File uploads (boarding passes, receipts). Stored on local disk; see README
+// for the note about ephemeral disks on some hosts.
+// ---------------------------------------------------------------------------
+const UPLOADS_DIR = path.resolve(process.env.UPLOADS_DIR || "uploads");
+const MAX_FILES = 5;
+const ALLOWED_UPLOADS: Record<string, string> = {
+  "application/pdf": ".pdf",
+  "image/png": ".png",
+  "image/jpeg": ".jpg",
+  "image/jpg": ".jpg",
+};
+
 const upload = multer({
-  dest: 'uploads/',
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
-  },
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only PDF, PNG, and JPG files are allowed.'));
-    }
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => {
+      fs.mkdir(UPLOADS_DIR, { recursive: true }, (err) => cb(err, UPLOADS_DIR));
+    },
+    filename: (_req, file, cb) => cb(null, `${randomUUID()}${ALLOWED_UPLOADS[file.mimetype] ?? ""}`),
+  }),
+  limits: { fileSize: 10 * 1024 * 1024, files: MAX_FILES },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_UPLOADS[file.mimetype]) cb(null, true);
+    else cb(new Error("Invalid file type. Only PDF, PNG, and JPG files are allowed."));
   },
 });
 
-export async function registerRoutes(app: Express): Promise<Server> {
-  
-  // Setup authentication
-  await setupAuth(app);
-
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
+const uploadDocuments: RequestHandler = (req, res, next) => {
+  upload.array("documents", MAX_FILES)(req, res, (err: unknown) => {
+    if (err) {
+      return res.status(400).json({ message: err instanceof Error ? err.message : "File upload failed" });
     }
+    next();
+  });
+};
+
+async function removeFiles(files: Express.Multer.File[]) {
+  await Promise.all(files.map((file) => fs.promises.unlink(file.path).catch(() => undefined)));
+}
+
+// ---------------------------------------------------------------------------
+// Validation
+// ---------------------------------------------------------------------------
+
+// Multipart forms send every value as text; turn "true"/"false" back into booleans.
+const formBoolean = z.preprocess(
+  (value) => value === true || value === "true" || value === "on" || value === "1",
+  z.boolean(),
+);
+
+const claimSubmissionSchema = insertClaimSchema
+  .omit({ documentsUrls: true, boardingPassUrl: true, poaDocumentUrl: true, status: true, flightData: true })
+  .extend({
+    passengerName: z.string().trim().min(1, "Passenger name is required"),
+    email: z.string().trim().toLowerCase().email("A valid email address is required"),
+    flightNumber: z.string().trim().min(2, "Flight number is required"),
+    flightDate: z.string().trim().min(1, "Flight date is required"),
+    departureAirport: z.string().trim().min(1, "Departure airport is required"),
+    arrivalAirport: z.string().trim().min(1, "Arrival airport is required"),
+    issueType: z.enum(["delayed", "cancelled", "denied-boarding", "missed-connection"]),
+    delayDuration: z.string().refine(isDelayBand, { message: "Delay duration must be one of the listed ranges" }),
+    delayReason: z.string().min(1, "Delay reason is required"),
+    language: z.enum(["en", "fr"]).optional(),
+    serviceLevel: z.enum(["managed", "kit"]).optional(),
+    triage: z.string().max(5000).optional(), // JSON of TriageAnswers (multipart sends text)
+    mealVouchers: z.string().trim().max(100).optional(),
+    poaConsent: formBoolean.refine((value) => value === true, {
+      message: "Power of Attorney consent is required to proceed with claim",
+    }),
+    poaRequested: formBoolean.optional(),
+    emailMarketingConsentClaim: formBoolean.optional(),
+    allClaimConsentsAccepted: formBoolean.optional(),
+  })
+  .refine((data) => bandsForIssue(data.issueType).some((band) => band.value === data.delayDuration), {
+    message: "Delays under 3 hours are only compensable for denied boarding",
+    path: ["delayDuration"],
   });
 
-  // Initialize consent documents on server start
-  await consentManager.generateConsentDocuments();
+const calculatorSchema = z.object({
+  issueType: z.enum(ISSUE_TYPES as [string, ...string[]]).optional(),
+  carrierSize: z.enum(["large", "small"]).optional(),
+  airline: z.string().trim().max(100).optional(),
+  delayDuration: z.string(),
+  delayReason: z.string().min(1, "Delay reason is required"),
+  mealVouchers: z.string().max(100).optional(),
+});
 
-  // Registration route with consent tracking
-  app.post('/api/register', async (req, res) => {
+const statusUpdateSchema = z.object({
+  status: z.enum(CLAIM_STATUSES),
+  notes: z.string().trim().max(2000).optional(),
+});
+
+const consentRecordInputSchema = z.object({
+  consentType: z.enum(["terms", "privacy", "dataRetention", "poa", "emailMarketing"]),
+  userEmail: z.string().trim().toLowerCase().email(),
+  userName: z.string().trim().min(1).max(200),
+  claimId: z.string().trim().max(50).optional(),
+  documentVersion: z.string().trim().max(20).default("1.0"),
+  agreed: z.boolean().default(true),
+});
+
+/** YUL-{8 chars from email+time}-{6 random} — the one ID used in the DB, consents, emails and tracking. */
+function generateClaimId(email: string): string {
+  const hash = createHash("sha256")
+    .update(`${email}:${Date.now()}`)
+    .digest("base64")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .substring(0, 8);
+  return `YUL-${hash}-${randomBytes(3).toString("hex")}`;
+}
+
+const STATUS_MESSAGES: Record<(typeof CLAIM_STATUSES)[number], string> = {
+  submitted: "Your claim has been submitted and is in our queue.",
+  "under-review": "Our team is reviewing your claim and corresponding with the airline.",
+  approved: "Your claim has been approved. We are now arranging payment.",
+  rejected: "Unfortunately the airline has declined this claim and it is not eligible under the APPR.",
+  paid: "Your compensation has been paid. Thank you for using FlightClaim Pro.",
+};
+
+/** Non-blocking follow-ups after a claim is saved: flight data, AI second opinion, Airtable mirror, confirmation email. */
+async function runClaimFollowUps(claim: Claim, estimate: CompensationEstimate) {
+  if (isFlightLookupConfigured()) {
     try {
-      const userData = req.body;
-      
-      // Record each consent with individual files
-      if (userData.termsAccepted) {
-        await consentManager.recordConsent({
-          consentType: 'terms',
-          userEmail: userData.email || 'unknown@email.com',
-          userName: userData.firstName && userData.lastName ? `${userData.firstName} ${userData.lastName}` : 'Unknown User',
-          timestamp: new Date().toISOString(),
-          ipAddress: req.ip,
-          userAgent: req.get('User-Agent'),
-          documentVersion: '1.0',
-          agreed: true
+      const flight = await lookupFlight(claim.flightNumber, claim.flightDate);
+      if (flight) {
+        const matchesReported = flight.delayBand === null ? null : flight.delayBand === claim.delayDuration;
+        await storage.updateClaim(claim.id, {
+          flightData: {
+            provider: flight.provider,
+            airlineName: flight.airlineName,
+            airlineIata: flight.airlineIata,
+            departureIata: flight.departureIata,
+            departureAirport: flight.departureAirport,
+            arrivalIata: flight.arrivalIata,
+            arrivalAirport: flight.arrivalAirport,
+            scheduledArrival: flight.scheduledArrival,
+            actualArrival: flight.actualArrival,
+            delayMinutes: flight.delayMinutes,
+            status: flight.status,
+            delayBand: flight.delayBand,
+            matchesReported,
+            fetchedAt: flight.fetchedAt,
+          },
         });
-      }
-
-      if (userData.privacyAccepted) {
-        await consentManager.recordConsent({
-          consentType: 'privacy',
-          userEmail: userData.email || 'unknown@email.com',
-          userName: userData.firstName && userData.lastName ? `${userData.firstName} ${userData.lastName}` : 'Unknown User',
-          timestamp: new Date().toISOString(),
-          ipAddress: req.ip,
-          userAgent: req.get('User-Agent'),
-          documentVersion: '1.0',
-          agreed: true
-        });
-      }
-
-      if (userData.dataRetentionAccepted) {
-        await consentManager.recordConsent({
-          consentType: 'dataRetention',
-          userEmail: userData.email || 'unknown@email.com',
-          userName: userData.firstName && userData.lastName ? `${userData.firstName} ${userData.lastName}` : 'Unknown User',
-          timestamp: new Date().toISOString(),
-          ipAddress: req.ip,
-          userAgent: req.get('User-Agent'),
-          documentVersion: '1.0',
-          agreed: true
-        });
-      }
-
-      if (userData.emailMarketingConsent) {
-        await consentManager.recordConsent({
-          consentType: 'emailMarketing',
-          userEmail: userData.email || 'unknown@email.com',
-          userName: userData.firstName && userData.lastName ? `${userData.firstName} ${userData.lastName}` : 'Unknown User',
-          timestamp: new Date().toISOString(),
-          ipAddress: req.ip,
-          userAgent: req.get('User-Agent'),
-          documentVersion: '1.0',
-          agreed: true
-        });
-      }
-      
-      res.json({ 
-        message: "Registration successful",
-        user: {
-          id: Date.now().toString(),
-          ...userData
-        }
-      });
-    } catch (error) {
-      console.error("Registration error:", error);
-      res.status(400).json({ message: "Registration failed" });
-    }
-  });
-
-  // Admin setup route (for initial setup only)
-  app.post('/api/setup-admin', async (req, res) => {
-    try {
-      const { email } = req.body;
-      
-      if (email === 'pncastrodorion@gmail.com') {
-        // Create or update the admin user
-        const adminUser = await storage.upsertUser({
-          id: 'admin-' + Date.now(),
-          email: email,
-          firstName: 'Pedro',
-          lastName: 'Castro',
-          role: 'senior_admin',
-        });
-        
-        res.json({ 
-          message: "Senior admin user created successfully",
-          user: adminUser
+        const delayText = flight.delayMinutes === null ? "delay unknown" : `${Math.round(flight.delayMinutes / 60 * 10) / 10}h late at arrival`;
+        await storage.addClaimEvent({
+          claimId: claim.id,
+          type: "system",
+          message: `Flight data (${flight.provider}): ${flight.airlineName ?? "?"} ${flight.flightIata} ${flight.departureIata ?? "?"}→${flight.arrivalIata ?? "?"}, status ${flight.status ?? "?"}, ${delayText}. ${matchesReported === false ? `Reported ${claim.delayDuration}h does NOT match provider band ${flight.delayBand ?? "<3h"}.` : matchesReported ? "Matches the reported delay." : ""}`,
+          metadata: { matchesReported, providerBand: flight.delayBand, reported: claim.delayDuration },
         });
       } else {
-        res.status(403).json({ message: "Unauthorized email for admin setup" });
+        await storage.addClaimEvent({ claimId: claim.id, type: "system", message: `Flight data: no record found for ${claim.flightNumber} on ${claim.flightDate}; verify manually.` });
       }
+    } catch (error) {
+      console.error("Flight data enrichment failed:", error);
+    }
+  }
+
+  try {
+    const ai = await validateClaimEligibility({
+      flightNumber: claim.flightNumber,
+      flightDate: claim.flightDate,
+      departureAirport: claim.departureAirport,
+      arrivalAirport: claim.arrivalAirport,
+      issueType: claim.issueType,
+      delayDuration: claim.delayDuration || undefined,
+      delayReason: claim.delayReason || undefined,
+    });
+    if (ai) {
+      await storage.updateClaimEligibility(claim.id, {
+        isEligible: estimate.eligible,
+        confidence: ai.confidence,
+        reason: `${estimate.reason} AI pre-screen (${Math.round(ai.confidence * 100)}% confident): ${ai.reason}`,
+        source: "ai",
+      });
+    }
+  } catch (error) {
+    console.error("Eligibility pre-screen failed:", error);
+  }
+
+  if (airtableService.isConfigured()) {
+    try {
+      await airtableService.createClaimRecord(claim);
+    } catch (error) {
+      console.error("Airtable sync failed:", error);
+    }
+  }
+
+  await sendStageEmail(claim, "submitted");
+}
+
+const AIRLINE_RESPONSE_DAYS = 30;
+
+function daysBetween(from: Date, to: Date): number {
+  return Math.ceil((to.getTime() - from.getTime()) / (24 * 60 * 60 * 1000));
+}
+
+/** Admin view of a claim with its event log and computed deadline state. */
+async function claimDetail(claim: Claim) {
+  const events = await storage.getClaimEvents(claim.id);
+  const flightCase = await storage.getFlightCase(claim.flightNumber, claim.flightDate);
+  const now = new Date();
+  const deadline = claim.airlineDeadlineAt ? new Date(claim.airlineDeadlineAt) : null;
+  const open = !["approved", "rejected", "paid"].includes(claim.status);
+  const daysLeft = deadline ? daysBetween(now, deadline) : null;
+  return {
+    ...claim,
+    events,
+    lifecycle: {
+      airlineResponseDays: AIRLINE_RESPONSE_DAYS,
+      daysLeft,
+      overdue: open && deadline !== null && daysLeft !== null && daysLeft < 0 && !claim.ctaFiledAt,
+      canEscalate: open && deadline !== null && !claim.ctaFiledAt,
+    },
+    poaSignUrl: claim.poaSigned ? null : signPoaUrl(claim.claimId),
+    flightCase: flightCase ?? null,
+    flightKey: flightKeyFor(claim.flightNumber, claim.flightDate),
+  };
+}
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  app.get("/api/health", (_req, res) => {
+    res.json({ status: "ok", time: new Date().toISOString() });
+  });
+
+  // Feature flags the client adapts to (never secrets).
+  app.get("/api/config", (_req, res) => {
+    res.json({
+      flightLookup: isFlightLookupConfigured(),
+      boardingPassAi: isBoardingPassAiConfigured(),
+      assistant: isAiConfigured(),
+      payments: isStripeConfigured(),
+      pricing: pricingConfig(),
+    });
+  });
+
+  // Flight lookup for the "check my flight" step. Falls back to what we know from the airline code.
+  app.get("/api/flights/lookup", async (req, res) => {
+    const parsed = z
+      .object({ flightNumber: z.string().trim().min(3).max(10), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) })
+      .safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "A flight number (e.g. AC123) and a date are required" });
+    }
+    const flightIata = normalizeFlightNumber(parsed.data.flightNumber);
+    if (!flightIata) {
+      return res.status(400).json({ message: "Flight number should look like AC123" });
+    }
+    const hint = offlineFlightHint(flightIata);
+    if (!isFlightLookupConfigured()) {
+      return res.json({ configured: false, found: false, flightIata, ...hint });
+    }
+    const flight = await lookupFlight(flightIata, parsed.data.date);
+    if (!flight) {
+      return res.json({ configured: true, found: false, flightIata, ...hint });
+    }
+    res.json({ configured: true, found: true, ...hint, ...flight });
+  });
+
+  // Boarding-pass reading (AI vision). 503 tells the client to use on-device OCR instead.
+  const boardingPassUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1 } });
+  app.post("/api/boarding-pass/extract", (req, res) => {
+    boardingPassUpload.single("image")(req, res, async (err: unknown) => {
+      if (err) return res.status(400).json({ message: "Could not read the uploaded image" });
+      if (!isBoardingPassAiConfigured()) return res.status(503).json({ message: "Boarding-pass AI reading is not configured", code: "NOT_CONFIGURED" });
+      const file = req.file;
+      if (!file || !["image/png", "image/jpeg", "image/jpg", "image/webp"].includes(file.mimetype)) {
+        return res.status(400).json({ message: "Upload a PNG, JPG or WEBP photo of the boarding pass" });
+      }
+      try {
+        const fields = await extractBoardingPass(file.buffer, file.mimetype);
+        res.json(fields ?? { confidence: 0, source: "ai" });
+      } catch (error) {
+        console.error("Boarding pass extraction failed:", error);
+        res.status(502).json({ message: "Could not read the boarding pass; please fill the fields manually" });
+      }
+    });
+  });
+
+  // Sessions, /api/register, /api/login, /api/logout, /api/auth/user
+  await setupAuth(app);
+
+  // Write the consent documents (markdown) on start when the disk allows it
+  await consentManager.generateConsentDocuments();
+
+  // -------------------------------------------------------------------------
+  // Admin bootstrap: a signed-in user whose email is listed in ADMIN_EMAILS
+  // can grant themselves senior admin (normally done automatically on login).
+  // -------------------------------------------------------------------------
+  app.post("/api/setup-admin", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user!;
+      if (!isConfiguredAdmin(user.email)) {
+        return res.status(403).json({
+          message: `${user.email} is not listed in ADMIN_EMAILS (${adminEmails().join(", ")}).`,
+        });
+      }
+      const updated = await storage.updateUserRole(user.id, "senior_admin");
+      res.json({ message: "Senior admin access granted", user: toPublicUser(updated) });
     } catch (error) {
       console.error("Admin setup error:", error);
       res.status(500).json({ message: "Admin setup failed" });
     }
   });
 
-  // Claims endpoints
-  app.post("/api/claims", upload.array('documents', 5), async (req, res) => {
+  // -------------------------------------------------------------------------
+  // Claims
+  // -------------------------------------------------------------------------
+  app.post("/api/claims", uploadDocuments, async (req, res) => {
+    const files = (req.files as Express.Multer.File[] | undefined) ?? [];
     try {
-      console.log("Received claim data:", req.body);
-      const claimData = insertClaimSchema.parse(req.body);
-      
-      // Handle file uploads
-      const files = req.files as Express.Multer.File[];
-      const documentUrls: string[] = [];
-      
-      if (files && files.length > 0) {
-        for (const file of files) {
-          // In production, upload to cloud storage (AWS S3, Google Cloud, etc.)
-          // For now, we'll store locally and return a path
-          const fileUrl = `/uploads/${file.filename}`;
-          documentUrls.push(fileUrl);
-        }
+      const parsed = claimSubmissionSchema.safeParse(req.body);
+      if (!parsed.success) {
+        await removeFiles(files);
+        return res.status(400).json({
+          message: parsed.error.errors[0]?.message ?? "Invalid claim data",
+          errors: parsed.error.flatten().fieldErrors,
+        });
       }
+      const data = parsed.data;
 
-      // Generate claim ID for consent tracking
-      const generateClaimId = (email: string): string => {
-        const timestamp = Date.now().toString();
-        const hash = createHash('sha256')
-          .update(email + timestamp)
-          .digest('base64')
-          .replace(/[^a-zA-Z0-9]/g, '')
-          .substring(0, 8);
-        return `YUL-${hash}-${Math.random().toString(36).substring(2, 8)}`;
+      // Inadmissible or unknown reasons are accepted and flagged for the team to verify with the airline.
+      const reasonStatus = getReasonStatus(data.delayReason);
+
+      const claimId = generateClaimId(data.email);
+      const estimate = estimateCompensation({
+        issueType: data.issueType,
+        flightNumber: data.flightNumber,
+        delayDuration: data.delayDuration,
+        delayReason: data.delayReason,
+        mealVouchers: data.mealVouchers,
+      });
+
+      // Intake triage: hard gates, amount modifiers (refund rule, party size) and odds.
+      let triageAnswers = TRIAGE_DEFAULTS;
+      if (data.triage) {
+        try { triageAnswers = parseTriage(JSON.parse(data.triage)) ?? TRIAGE_DEFAULTS; } catch { /* keep defaults */ }
+      }
+      const airlineMatch = getAirlineByFlightNumber(data.flightNumber);
+      const triage = scoreTriage(triageAnswers, {
+        issueType: data.issueType,
+        carrierSize: estimate.carrierSize,
+        carrierKnown: !!airlineMatch,
+        delayDuration: estimate.delayDuration,
+        delayReason: data.delayReason,
+      });
+      // The triage amount is authoritative (it knows about refunds and gates); keep the voucher deduction.
+      const perPassenger = Math.max(0, triage.perPassenger - (triage.perPassenger > 0 ? estimate.mealVoucherDeduction : 0));
+      const commissionPerPassenger = Math.round(perPassenger * 0.15);
+
+      const { language, serviceLevel, triage: _triageRaw, ...claimFields } = data;
+      const claim = await storage.createClaim(
+        {
+          ...claimFields,
+          userId: req.user?.id ?? null,
+          language: language ?? "en",
+          serviceLevel: serviceLevel ?? "managed",
+          partySize: triage.partySize,
+          triage: { answers: triageAnswers as unknown as Record<string, unknown>, result: triage },
+          triageTier: triage.tier,
+          poaRequested: data.poaRequested ?? false,
+          emailMarketingConsentClaim: data.emailMarketingConsentClaim ?? false,
+          allClaimConsentsAccepted: data.poaConsent,
+          documentsUrls: files.map((file) => `/api/admin/uploads/${file.filename}`),
+          compensationAmount: perPassenger > 0 ? perPassenger.toFixed(2) : null,
+          commissionAmount: perPassenger > 0 ? commissionPerPassenger.toFixed(2) : null,
+          eligibilityValidation: {
+            isEligible: triage.tier !== "ineligible" && perPassenger > 0,
+            confidence: triage.score / 100,
+            reason: `${estimate.reason} Triage: ${triage.tier} (${triage.score}/100)${triage.gates.length ? `; gates: ${triage.gates.join(", ")}` : ""}${triage.partySize > 1 ? `; ${triage.partySize} passengers` : ""}${triage.refundRule ? "; refund chosen, flat amount applies" : ""}.`,
+            source: "rules",
+            needsReview: estimate.needsReview || triage.tier === "medium",
+          },
+        },
+        claimId,
+      );
+
+      await storage.addClaimEvent({
+        claimId: claim.id,
+        type: "system",
+        message: `Claim submitted (${data.issueType}, ${data.delayDuration}h, reason: ${data.delayReason}, ${triage.partySize} passenger(s)). Triage ${triage.tier} ${triage.score}/100: ${[...triage.gates, ...triage.reasons].join(", ")}. ${estimate.reason}`,
+        actorEmail: req.user?.email ?? null,
+        metadata: { estimate, triage, needsReview: estimate.needsReview },
+      });
+
+      const consentBase = {
+        userEmail: data.email,
+        userName: data.passengerName,
+        claimId,
+        timestamp: new Date().toISOString(),
+        ipAddress: req.ip,
+        userAgent: req.get("User-Agent"),
+        documentVersion: "1.0",
+        agreed: true,
       };
-      
-      const claimId = generateClaimId(claimData.email || '');
-      
-      // Record claim-specific consents with individual files
-      if (claimData.poaConsent) {
-        await consentManager.recordConsent({
-          consentType: 'poa',
-          userEmail: claimData.email || 'unknown@email.com',
-          userName: claimData.passengerName || 'Unknown User',
-          claimId: claimId,
-          timestamp: new Date().toISOString(),
-          ipAddress: req.ip,
-          userAgent: req.get('User-Agent'),
-          documentVersion: '1.0',
-          agreed: true
-        });
+      await consentManager.recordConsent({ ...consentBase, consentType: "poa" });
+      if (data.emailMarketingConsentClaim) {
+        await consentManager.recordConsent({ ...consentBase, consentType: "emailMarketing" });
       }
 
-      if (claimData.emailMarketingConsentClaim) {
-        await consentManager.recordConsent({
-          consentType: 'emailMarketing',
-          userEmail: claimData.email || 'unknown@email.com',
-          userName: claimData.passengerName || 'Unknown User',
-          claimId: claimId,
-          timestamp: new Date().toISOString(),
-          ipAddress: req.ip,
-          userAgent: req.get('User-Agent'),
-          documentVersion: '1.0',
-          agreed: true
-        });
-      }
+      res.status(201).json({ ...claim, estimate, triageResult: triage, poaSignUrl: signPoaUrl(claim.claimId) });
 
-      // Create claim in database
-      const claim = await storage.createClaim({
-        ...claimData,
-        documentsUrls: documentUrls,
-      });
-
-      // Validate claim eligibility using AI
-      try {
-        const eligibilityResult = await validateClaimEligibility({
-          flightNumber: claim.flightNumber,
-          flightDate: claim.flightDate,
-          departureAirport: claim.departureAirport,
-          arrivalAirport: claim.arrivalAirport,
-          issueType: claim.issueType,
-          delayDuration: claim.delayDuration || undefined,
-          delayReason: claim.delayReason || undefined,
-        });
-
-        // Update claim with eligibility validation
-        await storage.updateClaimEligibility(claim.id, eligibilityResult);
-
-        // If eligible, calculate compensation and commission
-        if (eligibilityResult.isEligible && eligibilityResult.compensationAmount) {
-          const compensationAmount = eligibilityResult.compensationAmount;
-          const commissionAmount = Math.round(compensationAmount * 0.15);
-          
-          await storage.updateClaimCompensation(claim.id, compensationAmount, commissionAmount);
-        }
-      } catch (error) {
-        console.error("Eligibility validation failed:", error);
-      }
-
-      // Sync with Airtable
-      try {
-        await airtableService.createClaimRecord(claim);
-      } catch (error) {
-        console.error("Airtable sync failed:", error);
-      }
-
-      // Send confirmation email
-      try {
-        await emailService.sendClaimConfirmation(claim.email, {
-          claimId: claim.claimId,
-          passengerName: claim.passengerName,
-          flightNumber: claim.flightNumber,
-          flightDate: claim.flightDate,
-          estimatedCompensation: claim.compensationAmount ? parseFloat(claim.compensationAmount) : undefined,
-          commissionAmount: claim.commissionAmount ? parseFloat(claim.commissionAmount) : undefined,
-        });
-      } catch (error) {
-        console.error("Email send failed:", error);
-      }
-
-      res.json(claim);
+      void runClaimFollowUps(claim, estimate);
     } catch (error) {
+      await removeFiles(files);
       console.error("Claim creation error:", error);
-      res.status(400).json({ 
-        message: error instanceof Error ? error.message : "Failed to create claim" 
-      });
+      res.status(500).json({ message: "Failed to create claim. Please try again." });
     }
   });
 
-  app.get("/api/claims/:identifier", async (req, res) => {
-    try {
-      const { identifier } = req.params;
-      
-      let claims;
-      if (identifier.includes('@')) {
-        // Email lookup
-        claims = await storage.getClaimsByEmail(identifier);
-      } else {
-        // Claim ID lookup
-        const claim = await storage.getClaimByClaimId(identifier);
-        claims = claim ? [claim] : [];
-      }
-
-      res.json(claims);
-    } catch (error) {
-      console.error("Claim lookup error:", error);
-      res.status(500).json({ message: "Failed to retrieve claims" });
-    }
-  });
-
-  app.patch("/api/claims/:id/status", async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { status, notes } = req.body;
-
-      const claim = await storage.updateClaimStatus(parseInt(id), status, notes);
-      
-      // Send status update email
-      try {
-        await emailService.sendStatusUpdate(claim.email, {
-          claimId: claim.claimId,
-          passengerName: claim.passengerName,
-          newStatus: status,
-          statusMessage: notes || `Your claim status has been updated to: ${status}`,
-        });
-      } catch (error) {
-        console.error("Status update email failed:", error);
-      }
-
-      res.json(claim);
-    } catch (error) {
-      console.error("Status update error:", error);
-      res.status(400).json({ message: "Failed to update claim status" });
-    }
-  });
-
-  // Get claim status by claim ID  
+  // Public tracking by Claim ID (the ID itself is the secret).
   app.get("/api/claims/status/:claimId", async (req, res) => {
     try {
-      const claim = await storage.getClaimByClaimId(req.params.claimId);
+      const claim = await storage.getClaimByClaimId(req.params.claimId.trim());
       if (!claim) {
         return res.status(404).json({ message: "Claim not found" });
       }
@@ -332,79 +462,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Commission calculator endpoint
-  app.post("/api/calculate-compensation", async (req, res) => {
+  // Lookup by Claim ID (public) or by email (own account or admin only).
+  app.get("/api/claims/:identifier", async (req, res) => {
     try {
-      const { email, distance, delayDuration, delayReason, mealVouchers, claimId } = req.body;
-      
-      let compensationAmount = 0;
-      
-      // Canadian APPR compensation calculation
-      if (distance === "1500") {
-        compensationAmount = delayDuration >= 6 ? 400 : 125;
-      } else if (distance === "3500") {
-        compensationAmount = delayDuration >= 6 ? 700 : 250;
-      } else if (distance === "3500+") {
-        compensationAmount = delayDuration >= 9 ? 1000 : (delayDuration >= 6 ? 700 : 400);
-      }
-
-      // Parse meal voucher amount and adjust compensation
-      let mealVoucherAmount = 0;
-      if (mealVouchers && mealVouchers.toLowerCase() !== "none") {
-        const voucherMatch = mealVouchers.match(/\$?(\d+(\.\d{2})?)/);
-        if (voucherMatch) {
-          mealVoucherAmount = parseFloat(voucherMatch[1]);
+      const identifier = req.params.identifier.trim();
+      if (identifier.includes("@")) {
+        if (!req.isAuthenticated() || !req.user) {
+          return res.status(401).json({ message: "Please sign in to look up claims by email" });
         }
+        const email = identifier.toLowerCase();
+        const isAdmin = ["junior_admin", "senior_admin"].includes(req.user.role ?? "user");
+        if (!isAdmin && req.user.email?.toLowerCase() !== email) {
+          return res.status(403).json({ message: "You can only view claims for your own email address" });
+        }
+        return res.json(await storage.getClaimsByEmail(email));
       }
-
-      // Deduct meal vouchers from compensation if provided
-      const adjustedCompensation = Math.max(0, compensationAmount - mealVoucherAmount);
-      const commissionAmount = Math.round(adjustedCompensation * 0.15);
-      const finalAmount = adjustedCompensation - commissionAmount;
-
-      // Generate AI explanation
-      let explanation = "";
-      try {
-        explanation = await generateCommissionExplanation(compensationAmount);
-      } catch (error) {
-        console.error("AI explanation failed:", error);
-      }
-
-      res.json({
-        compensationAmount: adjustedCompensation,
-        commissionAmount,
-        finalAmount,
-        claimId,
-        mealVoucherDeduction: mealVoucherAmount,
-        explanation,
-      });
+      const claim = await storage.getClaimByClaimId(identifier);
+      res.json(claim ? [claim] : []);
     } catch (error) {
-      console.error("Compensation calculation error:", error);
-      res.status(400).json({ message: "Failed to calculate compensation" });
+      console.error("Claim lookup error:", error);
+      res.status(500).json({ message: "Failed to retrieve claims" });
     }
   });
 
-  // DocuSign POA endpoints
-  app.post("/api/docusign/create-poa", async (req, res) => {
+  app.get("/api/my-claims", isAuthenticated, async (req, res) => {
     try {
-      const { claimId } = req.body;
-      
+      const mine = await storage.getClaimsForUser(req.user!.id, req.user!.email);
+      res.json(mine.map((claim) => ({ ...claim, poaSignUrl: claim.poaSigned ? null : signPoaUrl(claim.claimId) })));
+    } catch (error) {
+      console.error("My claims error:", error);
+      res.status(500).json({ message: "Failed to retrieve your claims" });
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // Commission calculator (APPR rules table, no account needed)
+  // -------------------------------------------------------------------------
+  app.post("/api/calculate-compensation", (req, res) => {
+    const parsed = calculatorSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.errors[0]?.message ?? "Invalid calculator input" });
+    }
+    const input = parsed.data;
+    const estimate = estimateCompensation({
+      issueType: input.issueType,
+      carrierSize: input.carrierSize,
+      airlineName: input.airline,
+      delayDuration: input.delayDuration,
+      delayReason: input.delayReason,
+      mealVouchers: input.mealVouchers,
+    });
+
+    res.json({
+      ...estimate,
+      explanation: generateCommissionExplanation(estimate.compensationAmount, estimate.commissionAmount, estimate.finalAmount),
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // DocuSign Power of Attorney (optional integration)
+  // -------------------------------------------------------------------------
+  app.post("/api/docusign/create-poa", isAuthenticated, async (req, res) => {
+    try {
+      const { claimId } = z.object({ claimId: z.string().min(1) }).parse(req.body);
       const claim = await storage.getClaimByClaimId(claimId);
       if (!claim) {
         return res.status(404).json({ message: "Claim not found" });
       }
-
-      const compensationAmount = claim.compensationAmount ? parseFloat(claim.compensationAmount) : 0;
-      const commissionAmount = claim.commissionAmount ? parseFloat(claim.commissionAmount) : 0;
+      const isAdmin = ["junior_admin", "senior_admin"].includes(req.user?.role ?? "user");
+      if (!isAdmin && req.user?.email?.toLowerCase() !== claim.email.toLowerCase()) {
+        return res.status(403).json({ message: "You can only request a POA for your own claim" });
+      }
 
       const signingResponse = await docusignService.createPOAEnvelope({
         claimId: claim.claimId,
         passengerName: claim.passengerName,
         passengerEmail: claim.email,
-        compensationAmount,
-        commissionAmount,
+        compensationAmount: claim.compensationAmount ? Number(claim.compensationAmount) : 0,
+        commissionAmount: claim.commissionAmount ? Number(claim.commissionAmount) : 0,
       });
 
+      await storage.updateClaimPOA(claim.id, false);
       res.json(signingResponse);
     } catch (error) {
       console.error("DocuSign POA creation error:", error);
@@ -414,20 +552,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/docusign/callback", async (req, res) => {
     try {
-      const { envelopeId, event } = req.body;
-      
-      if (event === "envelope-completed") {
+      const { envelopeId, event } = req.body ?? {};
+      if (event === "envelope-completed" && envelopeId) {
         const status = await docusignService.getEnvelopeStatus(envelopeId);
-        
-        if (status.completed) {
-          // Update claim with POA completion
-          // Note: You'd need to link envelope ID to claim ID in a real implementation
-          // For now, this is a simplified callback handler
-          
-          res.json({ success: true, message: "POA completed successfully" });
-        }
+        return res.json({ success: true, completed: status.completed });
       }
-      
       res.json({ success: true });
     } catch (error) {
       console.error("DocuSign callback error:", error);
@@ -435,68 +564,414 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin middleware
-  const isJuniorAdmin = async (req: any, res: any, next: any) => {
+  // -------------------------------------------------------------------------
+  // Admin dashboard
+  // -------------------------------------------------------------------------
+  const updateClaimStatusHandler: RequestHandler = async (req, res) => {
     try {
-      if (!req.user?.claims?.sub) {
-        return res.status(401).json({ message: "Authentication required" });
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id)) {
+        return res.status(400).json({ message: "Invalid claim id" });
+      }
+      const parsed = statusUpdateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: `Status must be one of: ${CLAIM_STATUSES.join(", ")}` });
+      }
+      const existing = await storage.getClaimById(id);
+      if (!existing) {
+        return res.status(404).json({ message: "Claim not found" });
       }
 
-      const user = await storage.getUser(req.user.claims.sub);
-      if (!user || !['junior_admin', 'senior_admin'].includes(user.role || 'user')) {
-        return res.status(403).json({ message: "Admin access required" });
+      const { status, notes } = parsed.data;
+      const historyNote = notes || `Status changed from ${existing.status} to ${status} by ${req.user?.email ?? "admin"}`;
+      let claim = await storage.updateClaimStatus(id, status, historyNote);
+      if (status === "paid" && claim.paymentStatus !== "paid") {
+        claim = await storage.updateClaim(id, { paymentStatus: "paid", paidAt: new Date() });
       }
-      
-      req.currentUser = user;
-      next();
+      await storage.addClaimEvent({
+        claimId: id,
+        type: "status",
+        message: `Status ${existing.status} → ${status}${notes ? `: ${notes}` : ""}`,
+        actorEmail: req.user?.email ?? null,
+        metadata: { from: existing.status, to: status },
+      });
+
+      if (status !== existing.status) {
+        if (status === "approved" || status === "rejected" || status === "paid") {
+          void sendStageEmail(claim, status, { actorEmail: req.user?.email });
+        } else {
+          emailService
+            .sendStatusUpdate(claim.email, {
+              claimId: claim.claimId,
+              passengerName: claim.passengerName,
+              newStatus: status,
+              statusMessage: notes || STATUS_MESSAGES[status],
+            })
+            .catch((error) => console.error("Status update email failed:", error));
+        }
+      }
+
+      res.json(claim);
     } catch (error) {
-      res.status(500).json({ message: "Authorization check failed" });
+      console.error("Status update error:", error);
+      res.status(500).json({ message: "Failed to update claim status" });
     }
   };
+  app.patch("/api/admin/claims/:id/status", isJuniorAdmin, updateClaimStatusHandler);
+  app.patch("/api/claims/:id/status", isJuniorAdmin, updateClaimStatusHandler);
 
-  const isSeniorAdmin = async (req: any, res: any, next: any) => {
+  app.get("/api/admin/claims", isJuniorAdmin, async (_req, res) => {
     try {
-      if (!req.user?.claims?.sub) {
-        return res.status(401).json({ message: "Authentication required" });
-      }
-
-      const user = await storage.getUser(req.user.claims.sub);
-      if (!user || user.role !== 'senior_admin') {
-        return res.status(403).json({ message: "Senior admin access required" });
-      }
-      
-      req.currentUser = user;
-      next();
-    } catch (error) {
-      res.status(500).json({ message: "Authorization check failed" });
-    }
-  };
-
-  // Admin dashboard endpoints
-  app.get("/api/admin/claims", isJuniorAdmin, async (req, res) => {
-    try {
-      const claims = await storage.getAllClaims();
-      res.json(claims);
+      res.json(await storage.getAllClaims());
     } catch (error) {
       console.error("Error fetching admin claims:", error);
       res.status(500).json({ message: "Failed to fetch claims" });
     }
   });
 
-  app.get("/api/admin/users", isSeniorAdmin, async (req, res) => {
+  // Payments view derived from approved/paid claims (no separate payments table yet).
+  app.get("/api/admin/payments", isJuniorAdmin, async (_req, res) => {
+    try {
+      const claims = await storage.getAllClaims();
+      const payments = claims
+        .filter((claim) => claim.status === "approved" || claim.status === "paid")
+        .map((claim) => ({
+          id: claim.id,
+          claimId: claim.claimId,
+          passengerName: claim.passengerName,
+          email: claim.email,
+          compensationAmount: Number(claim.compensationAmount ?? 0),
+          commissionAmount: Number(claim.commissionAmount ?? 0),
+          status: claim.status,
+          paymentMethod: claim.poaSigned ? "POA (direct deduction)" : "Invoice after payout",
+        }));
+      res.json(payments);
+    } catch (error) {
+      console.error("Error fetching payments:", error);
+      res.status(500).json({ message: "Failed to fetch payments" });
+    }
+  });
+
+  app.get("/api/admin/uploads/:filename", isJuniorAdmin, (req, res) => {
+    const filename = path.basename(req.params.filename);
+    res.sendFile(path.join(UPLOADS_DIR, filename), (error) => {
+      if (error && !res.headersSent) res.status(404).json({ message: "File not found" });
+    });
+  });
+
+  // Record that the claim went to the airline (starts the 30-day clock) and email the letter when SMTP is set up.
+  app.post("/api/admin/claims/:id/email-airline", isJuniorAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const claim = Number.isInteger(id) ? await storage.getClaimById(id) : undefined;
+      if (!claim) {
+        return res.status(404).json({ message: "Claim not found" });
+      }
+      const to = process.env.AIRLINE_CLAIMS_EMAIL;
+      let emailed = false;
+      if (to && emailService.isConfigured()) {
+        emailed = await emailService.sendAirlineClaimLetter(to, claim);
+      }
+
+      const nextStatus = claim.status === "submitted" ? "under-review" : claim.status;
+      const contactedAt = new Date();
+      const note = emailed
+        ? `Claim letter emailed to ${to} by ${req.user?.email ?? "admin"}`
+        : `Claim sent to the airline (recorded by ${req.user?.email ?? "admin"}; letter not emailed automatically)`;
+      await storage.updateClaimStatus(claim.id, nextStatus, note);
+      const updated = await storage.updateClaim(claim.id, {
+        airlineContactedAt: claim.airlineContactedAt ?? contactedAt,
+        airlineDeadlineAt: claim.airlineDeadlineAt ?? new Date(contactedAt.getTime() + AIRLINE_RESPONSE_DAYS * 24 * 60 * 60 * 1000),
+      });
+      await storage.addClaimEvent({
+        claimId: claim.id,
+        type: "letter",
+        message: `${emailed ? `Claim letter emailed to the airline (${to}).` : "Claim recorded as sent to the airline (send the letter manually: " + (to ? "SMTP not configured" : "AIRLINE_CLAIMS_EMAIL not set") + ")."} Airline has ${AIRLINE_RESPONSE_DAYS} days to respond.`,
+        actorEmail: req.user?.email ?? null,
+        metadata: { to: to ?? null, emailed },
+      });
+      void sendStageEmail(updated, "sent_to_airline", { actorEmail: req.user?.email });
+      res.json({
+        message: emailed
+          ? `Claim letter sent to ${to}; airline deadline set`
+          : `Airline deadline recorded. ${to ? "Email is not configured, send the letter manually." : "Set AIRLINE_CLAIMS_EMAIL to email letters automatically."}`,
+        emailed,
+        claim: updated,
+      });
+    } catch (error) {
+      console.error("Email airline error:", error);
+      res.status(500).json({ message: "Failed to record the airline contact" });
+    }
+  });
+
+  // Commission invoice: a Stripe Checkout link when configured, e-Transfer instructions otherwise.
+  const sendInvoiceHandler: RequestHandler = async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      let claim = Number.isInteger(id) ? await storage.getClaimById(id) : undefined;
+      if (!claim) {
+        return res.status(404).json({ message: "Claim not found" });
+      }
+      if (!claim.compensationAmount || !claim.commissionAmount) {
+        return res.status(400).json({ message: "This claim has no compensation amount yet" });
+      }
+      if (claim.paymentStatus === "paid") {
+        return res.status(400).json({ message: "This commission is already paid" });
+      }
+
+      let paymentLink = claim.paymentLinkUrl ?? undefined;
+      if (isStripeConfigured() && !paymentLink) {
+        const session = await createCommissionCheckout(claim);
+        paymentLink = session.url;
+        claim = await storage.updateClaim(claim.id, { paymentLinkUrl: session.url, stripeSessionId: session.id, paymentStatus: "link_sent" });
+      } else if (!paymentLink) {
+        claim = await storage.updateClaim(claim.id, { paymentStatus: "link_sent" });
+      }
+
+      await storage.addClaimEvent({
+        claimId: claim.id,
+        type: "payment",
+        message: paymentLink ? `Commission invoice sent with Stripe payment link` : `Commission invoice sent with e-Transfer instructions (Stripe not configured)`,
+        actorEmail: req.user?.email ?? null,
+        metadata: { paymentLink: paymentLink ?? null, commission: claim.commissionAmount },
+      });
+      const sent = await sendStageEmail(claim, "payment_link", { actorEmail: req.user?.email, paymentLink });
+      res.json({
+        message: sent ? `Invoice emailed to ${claim.email}` : `Invoice recorded; email not sent (SMTP not configured)`,
+        paymentLink: paymentLink ?? null,
+        claim,
+      });
+    } catch (error) {
+      console.error("Invoice error:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to send the invoice" });
+    }
+  };
+  app.post("/api/admin/claims/:id/invoice", isJuniorAdmin, sendInvoiceHandler);
+  app.post("/api/admin/claims/:id/payment-link", isJuniorAdmin, sendInvoiceHandler);
+
+  // Claim detail with event log
+  app.get("/api/admin/claims/:id", isJuniorAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const claim = Number.isInteger(id) ? await storage.getClaimById(id) : undefined;
+      if (!claim) {
+        return res.status(404).json({ message: "Claim not found" });
+      }
+      res.json(await claimDetail(claim));
+    } catch (error) {
+      console.error("Claim detail error:", error);
+      res.status(500).json({ message: "Failed to load claim" });
+    }
+  });
+
+  app.post("/api/admin/claims/:id/notes", isJuniorAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const parsed = z.object({ message: z.string().trim().min(1).max(5000) }).safeParse(req.body);
+      if (!Number.isInteger(id) || !parsed.success) {
+        return res.status(400).json({ message: "A note is required" });
+      }
+      const claim = await storage.getClaimById(id);
+      if (!claim) {
+        return res.status(404).json({ message: "Claim not found" });
+      }
+      const event = await storage.addClaimEvent({ claimId: id, type: "note", message: parsed.data.message, actorEmail: req.user?.email ?? null });
+      res.status(201).json(event);
+    } catch (error) {
+      console.error("Add note error:", error);
+      res.status(500).json({ message: "Failed to add note" });
+    }
+  });
+
+  // Airline missed its 30 days: record the CTA complaint and tell the passenger.
+  app.post("/api/admin/claims/:id/escalate", isJuniorAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const claim = Number.isInteger(id) ? await storage.getClaimById(id) : undefined;
+      if (!claim) {
+        return res.status(404).json({ message: "Claim not found" });
+      }
+      const parsed = z.object({ path: z.enum(["cta", "small_claims"]).default("cta"), reference: z.string().trim().max(100).optional() }).safeParse(req.body ?? {});
+      const path_ = parsed.success ? parsed.data.path : "cta";
+      const reference = parsed.success ? parsed.data.reference : undefined;
+      if (path_ === "small_claims" && claim.smallClaimsFiledAt) {
+        return res.status(400).json({ message: "Already filed at small claims" });
+      }
+      if (path_ === "cta" && claim.ctaFiledAt) {
+        return res.status(400).json({ message: "Already escalated to the CTA" });
+      }
+      const label = path_ === "cta" ? "Canadian Transportation Agency" : "Court of Québec, Small Claims Division";
+      await storage.updateClaimStatus(id, "under-review", `Claim filed with the ${label}${reference ? ` (ref ${reference})` : ""}`);
+      const updated = await storage.updateClaim(id, path_ === "cta" ? { ctaFiledAt: new Date(), escalationPath: "cta" } : { smallClaimsFiledAt: new Date(), escalationPath: "small_claims" });
+      await storage.addClaimEvent({
+        claimId: id,
+        type: "escalation",
+        message: `Escalated to the ${label}${reference ? ` (reference ${reference})` : ""}`,
+        actorEmail: req.user?.email ?? null,
+        metadata: { path: path_, reference: reference ?? null },
+      });
+      void sendStageEmail(updated, "escalated", { actorEmail: req.user?.email });
+      res.json({ message: "Escalation recorded and passenger notified", claim: updated });
+    } catch (error) {
+      console.error("Escalate error:", error);
+      res.status(500).json({ message: "Failed to record escalation" });
+    }
+  });
+
+  // The airline said no: record it (unlocks the small-claims file for the passenger).
+  app.post("/api/admin/claims/:id/refused", isJuniorAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const claim = Number.isInteger(id) ? await storage.getClaimById(id) : undefined;
+      if (!claim) return res.status(404).json({ message: "Claim not found" });
+      const parsed = z.object({ reason: z.string().trim().max(2000).optional() }).safeParse(req.body ?? {});
+      const reason = parsed.success ? parsed.data.reason : undefined;
+      const updated = await storage.updateClaim(id, { airlineRefusedAt: new Date() });
+      await storage.addClaimEvent({ claimId: id, type: "letter", message: `Airline refused the claim${reason ? `: ${reason}` : ""}`, actorEmail: req.user?.email ?? null });
+      res.json({ message: "Refusal recorded", claim: updated });
+    } catch (error) {
+      console.error("Refusal error:", error);
+      res.status(500).json({ message: "Failed to record refusal" });
+    }
+  });
+
+  // Claims grouped by flight, with the shared investigation for each.
+  app.get("/api/admin/flights", isJuniorAdmin, async (_req, res) => {
+    try {
+      const [claims, cases] = await Promise.all([storage.getAllClaims(), storage.getAllFlightCases()]);
+      const caseByKey = new Map(cases.map((c) => [c.flightKey, c]));
+      const groups = new Map<string, { flightKey: string; flightNumber: string; flightDate: string; claims: Claim[] }>();
+      for (const claim of claims) {
+        const key = flightKeyFor(claim.flightNumber, claim.flightDate);
+        if (!groups.has(key)) groups.set(key, { flightKey: key, flightNumber: claim.flightNumber, flightDate: claim.flightDate, claims: [] });
+        groups.get(key)!.claims.push(claim);
+      }
+      const result = [...groups.values()]
+        .map((group) => ({
+          flightKey: group.flightKey,
+          flightNumber: group.flightNumber,
+          flightDate: group.flightDate,
+          count: group.claims.length,
+          statuses: group.claims.reduce<Record<string, number>>((acc, c) => ({ ...acc, [c.status]: (acc[c.status] ?? 0) + 1 }), {}),
+          needsReview: group.claims.filter((c) => c.eligibilityValidation?.needsReview).length,
+          totalCompensation: group.claims.reduce((sum, c) => sum + Number(c.compensationAmount ?? 0), 0),
+          flightData: group.claims.find((c) => c.flightData)?.flightData ?? null,
+          flightCase: caseByKey.get(group.flightKey) ?? null,
+          claims: group.claims.map((c) => ({ id: c.id, claimId: c.claimId, passengerName: c.passengerName, status: c.status, delayReason: c.delayReason, delayDuration: c.delayDuration })),
+        }))
+        .sort((a, b) => b.count - a.count || b.flightDate.localeCompare(a.flightDate));
+      res.json(result);
+    } catch (error) {
+      console.error("Flights error:", error);
+      res.status(500).json({ message: "Failed to group claims by flight" });
+    }
+  });
+
+  app.put("/api/admin/flights/:flightKey", isJuniorAdmin, async (req, res) => {
+    try {
+      const parsed = z
+        .object({
+          flightNumber: z.string().trim().min(3),
+          flightDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+          cause: z.string().trim().max(2000).optional(),
+          causeStatus: z.enum(["unknown", "admissible", "inadmissible", "contested"]).optional(),
+          notes: z.string().trim().max(5000).optional(),
+        })
+        .safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "flightNumber, flightDate and the fields to update are required" });
+      const { flightNumber, flightDate, ...data } = parsed.data;
+      if (flightKeyFor(flightNumber, flightDate) !== req.params.flightKey) return res.status(400).json({ message: "Flight key mismatch" });
+      const row = await storage.upsertFlightCase(flightNumber, flightDate, { ...data, updatedBy: req.user?.email ?? null });
+      for (const claim of await storage.getClaimsByFlight(flightNumber, flightDate)) {
+        await storage.addClaimEvent({ claimId: claim.id, type: "system", message: `Flight investigation updated (${row.causeStatus}): ${row.cause ?? "no cause recorded yet"}`, actorEmail: req.user?.email ?? null });
+      }
+      res.json(row);
+    } catch (error) {
+      console.error("Flight case error:", error);
+      res.status(500).json({ message: "Failed to save the flight investigation" });
+    }
+  });
+
+  app.post("/api/admin/reminders/run", isSeniorAdmin, async (_req, res) => {
+    try {
+      res.json(await runReminders());
+    } catch (error) {
+      console.error("Reminders error:", error);
+      res.status(500).json({ message: "Failed to run reminders" });
+    }
+  });
+
+  app.get("/api/admin/users", isSeniorAdmin, async (_req, res) => {
     try {
       const users = await storage.getAllUsers();
-      res.json(users);
+      res.json(users.map(toPublicUser));
     } catch (error) {
       console.error("Error fetching users:", error);
       res.status(500).json({ message: "Failed to fetch users" });
     }
   });
 
-  app.post("/api/admin/export-sheets", isSeniorAdmin, async (req, res) => {
+  app.put("/api/admin/users/:id/role", isSeniorAdmin, async (req, res) => {
     try {
+      const parsed = z.object({ role: z.enum(USER_ROLES) }).safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: `Role must be one of: ${USER_ROLES.join(", ")}` });
+      }
+      if (req.params.id === req.user?.id && parsed.data.role !== "senior_admin") {
+        return res.status(400).json({ message: "You cannot remove your own senior admin role" });
+      }
+      const user = await storage.updateUserRole(req.params.id, parsed.data.role);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json(toPublicUser(user));
+    } catch (error) {
+      console.error("Error updating user role:", error);
+      res.status(500).json({ message: "Failed to update user role" });
+    }
+  });
+
+  app.post("/api/admin/marketing/send", isSeniorAdmin, async (req, res) => {
+    try {
+      const parsed = z
+        .object({ subject: z.string().trim().min(1).max(200), message: z.string().trim().min(1).max(10000) })
+        .safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Subject and message are required" });
+      }
+      if (!emailService.isConfigured()) {
+        return res.status(503).json({ message: "Email is not configured. Set SMTP_HOST, SMTP_USER and SMTP_PASS." });
+      }
+
+      const recipients = await storage.getUsersWithMarketingConsent();
+      let sent = 0;
+      const failed: string[] = [];
+      for (const recipient of recipients) {
+        if (!recipient.email) continue;
+        try {
+          await emailService.sendMarketingEmail(recipient.email, { ...parsed.data, firstName: recipient.firstName });
+          sent += 1;
+        } catch (error) {
+          console.error(`Marketing email to ${recipient.email} failed:`, error);
+          failed.push(recipient.email);
+        }
+      }
+      res.json({ message: `Campaign sent to ${sent} of ${recipients.length} opted-in users`, sent, failed: failed.length });
+    } catch (error) {
+      console.error("Marketing send error:", error);
+      res.status(500).json({ message: "Failed to send campaign" });
+    }
+  });
+
+  app.post("/api/admin/export-sheets", isSeniorAdmin, async (_req, res) => {
+    try {
+      if (!googleSheetsService.isConfigured()) {
+        return res.status(503).json({
+          message: "Google Sheets export is not configured. Set GOOGLE_SHEETS_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY.",
+        });
+      }
       const claims = await storage.getAllClaims();
-      const claimsData = claims.map(claim => ({
+      const claimsData = claims.map((claim) => ({
         claimId: claim.claimId,
         passengerName: claim.passengerName,
         email: claim.email,
@@ -505,18 +980,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         departureAirport: claim.departureAirport,
         arrivalAirport: claim.arrivalAirport,
         issueType: claim.issueType,
-        delayDuration: claim.delayDuration || '',
-        delayReason: claim.delayReason || '',
-        mealVouchers: claim.mealVouchers || 'None',
+        delayDuration: claim.delayDuration || "",
+        delayReason: claim.delayReason || "",
+        mealVouchers: claim.mealVouchers || "None",
         status: claim.status,
-        compensationAmount: claim.compensationAmount,
-        commissionAmount: claim.commissionAmount,
-        poaRequested: claim.poaRequested,
-        poaSigned: claim.poaSigned,
+        compensationAmount: claim.compensationAmount ? Number(claim.compensationAmount) : undefined,
+        commissionAmount: claim.commissionAmount ? Number(claim.commissionAmount) : undefined,
+        poaRequested: claim.poaRequested ?? false,
+        poaSigned: claim.poaSigned ?? false,
         poaConsent: claim.poaConsent,
-        emailMarketingConsent: claim.emailMarketingConsentClaim || false,
-        createdAt: claim.createdAt?.toISOString() || '',
-        updatedAt: claim.updatedAt?.toISOString() || '',
+        emailMarketingConsent: claim.emailMarketingConsentClaim ?? false,
+        createdAt: claim.createdAt?.toISOString() || "",
+        updatedAt: claim.updatedAt?.toISOString() || "",
       }));
 
       const sheetUrl = await googleSheetsService.exportClaimsToSheet(claimsData);
@@ -527,35 +1002,330 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/admin/users/:id/role", isSeniorAdmin, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { role } = req.body;
-      
-      if (!['user', 'junior_admin', 'senior_admin'].includes(role)) {
-        return res.status(400).json({ message: "Invalid role" });
-      }
+  // -------------------------------------------------------------------------
+  // Power of Attorney signing (passenger, via signed link or own account)
+  // -------------------------------------------------------------------------
+  const loadClaimForPassenger = async (req: Parameters<RequestHandler>[0]) => {
+    const claimId = req.params.claimId.trim();
+    const token = typeof req.query.token === "string" ? req.query.token : typeof req.body?.token === "string" ? req.body.token : "";
+    const claim = await storage.getClaimByClaimId(claimId);
+    if (!claim) return { claim: undefined, allowed: false };
+    const owns = !!req.user && (req.user.id === claim.userId || req.user.email?.toLowerCase() === claim.email.toLowerCase());
+    const isAdmin = ["junior_admin", "senior_admin"].includes(req.user?.role ?? "user");
+    const allowed = owns || isAdmin || (!!token && verifyClaimToken(claimId, token));
+    return { claim, allowed };
+  };
 
-      const user = await storage.updateUserRole(id, role);
-      res.json(user);
+  app.get("/api/claims/:claimId/poa", async (req, res) => {
+    try {
+      const { claim, allowed } = await loadClaimForPassenger(req);
+      if (!claim) return res.status(404).json({ message: "Claim not found" });
+      if (!allowed) return res.status(403).json({ message: "This link is not valid for this claim" });
+      res.json({
+        claimId: claim.claimId,
+        passengerName: claim.passengerName,
+        email: claim.email,
+        flightNumber: claim.flightNumber,
+        flightDate: claim.flightDate,
+        departureAirport: claim.departureAirport,
+        arrivalAirport: claim.arrivalAirport,
+        compensationAmount: claim.compensationAmount,
+        commissionAmount: claim.commissionAmount,
+        language: claim.language,
+        poaSigned: claim.poaSigned,
+        poaSignedAt: claim.poaSignedAt,
+        version: POA_VERSION,
+      });
     } catch (error) {
-      console.error("Error updating user role:", error);
-      res.status(500).json({ message: "Failed to update user role" });
+      console.error("POA info error:", error);
+      res.status(500).json({ message: "Failed to load claim" });
     }
   });
 
-  // FAQ endpoints
+  app.post("/api/claims/:claimId/sign", async (req, res) => {
+    try {
+      const { claim, allowed } = await loadClaimForPassenger(req);
+      if (!claim) return res.status(404).json({ message: "Claim not found" });
+      if (!allowed) return res.status(403).json({ message: "This link is not valid for this claim" });
+      if (claim.poaSigned) return res.status(400).json({ message: "This Power of Attorney is already signed", code: "ALREADY_SIGNED" });
+      const parsed = z
+        .object({
+          signature: z.string().startsWith("data:image/png;base64,").max(3 * 1024 * 1024),
+          typedName: z.string().trim().min(2).max(120),
+          agreed: z.literal(true),
+        })
+        .safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "A drawn signature, your typed name and your agreement are required" });
+      }
+
+      const signedAt = new Date();
+      const pdf = await renderPoaPdf(claim, {
+        dataUrl: parsed.data.signature,
+        typedName: parsed.data.typedName,
+        signedAt,
+        ipAddress: req.ip,
+        userAgent: req.get("User-Agent"),
+      });
+      const filename = await storePoaPdf(UPLOADS_DIR, claim.claimId, pdf);
+      const updated = await storage.updateClaim(claim.id, {
+        poaSigned: true,
+        poaSignedAt: signedAt,
+        poaRequested: true,
+        poaDocumentUrl: `/api/admin/uploads/${filename}`,
+      });
+      await consentManager.recordConsent({
+        consentType: "poa",
+        userEmail: claim.email,
+        userName: parsed.data.typedName,
+        claimId: claim.claimId,
+        timestamp: signedAt.toISOString(),
+        ipAddress: req.ip,
+        userAgent: req.get("User-Agent"),
+        documentVersion: POA_VERSION,
+        agreed: true,
+      });
+      await storage.addClaimEvent({
+        claimId: claim.id,
+        type: "poa",
+        message: `Power of Attorney signed electronically by ${parsed.data.typedName}`,
+        actorEmail: claim.email,
+        metadata: { filename, ip: req.ip },
+      });
+      void sendStageEmail(updated, "poa_signed", { attachments: [{ filename, content: pdf, contentType: "application/pdf" }] });
+      res.json({ message: "Power of Attorney signed", poaSigned: true, downloadUrl: `/api/claims/${encodeURIComponent(claim.claimId)}/poa.pdf` });
+    } catch (error) {
+      console.error("POA sign error:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to sign" });
+    }
+  });
+
+  app.get("/api/claims/:claimId/poa.pdf", async (req, res) => {
+    try {
+      const { claim, allowed } = await loadClaimForPassenger(req);
+      if (!claim) return res.status(404).json({ message: "Claim not found" });
+      if (!allowed) return res.status(403).json({ message: "This link is not valid for this claim" });
+      if (!claim.poaSigned) return res.status(404).json({ message: "Not signed yet" });
+      res.setHeader("Content-Disposition", `inline; filename="${poaFileName(claim.claimId)}"`);
+      res.sendFile(path.join(UPLOADS_DIR, poaFileName(claim.claimId)), (error) => {
+        if (error && !res.headersSent) res.status(404).json({ message: "File not found" });
+      });
+    } catch (error) {
+      console.error("POA download error:", error);
+      res.status(500).json({ message: "Failed to load document" });
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // Self-serve kit and small-claims file (passenger, via own account or signed link)
+  // -------------------------------------------------------------------------
+  const kitStatus = (claim: Claim) => {
+    const pricing = pricingConfig();
+    const unlocked = !pricing.kitRequiresPayment || !!claim.kitPaidAt;
+    const filingLimit = new Date(`${claim.flightDate}T00:00:00Z`);
+    filingLimit.setUTCFullYear(filingLimit.getUTCFullYear() + 1);
+    return {
+      claimId: claim.claimId,
+      passengerName: claim.passengerName,
+      flightNumber: claim.flightNumber,
+      flightDate: claim.flightDate,
+      departureAirport: claim.departureAirport,
+      arrivalAirport: claim.arrivalAirport,
+      issueType: claim.issueType,
+      delayDuration: claim.delayDuration,
+      delayReason: claim.delayReason,
+      compensationAmount: claim.compensationAmount,
+      language: claim.language,
+      serviceLevel: claim.serviceLevel,
+      eligibility: claim.eligibilityValidation ?? null,
+      unlocked,
+      requiresPayment: pricing.kitRequiresPayment && !claim.kitPaidAt,
+      priceCents: pricing.kitPriceCents,
+      paymentsConfigured: isStripeConfigured(),
+      letter: unlocked ? demandLetter(claim) : null,
+      airlineContactedAt: claim.airlineContactedAt,
+      airlineDeadlineAt: claim.airlineDeadlineAt,
+      airlineRefusedAt: claim.airlineRefusedAt,
+      ctaFiledAt: claim.ctaFiledAt,
+      smallClaimsFiledAt: claim.smallClaimsFiledAt,
+      filingLimit: filingLimit.toISOString().slice(0, 10),
+      documents: (claim.documentsUrls ?? []).length,
+      poaSigned: claim.poaSigned,
+      poaSignUrl: claim.poaSigned ? null : signPoaUrl(claim.claimId),
+    };
+  };
+
+  app.get("/api/claims/:claimId/kit", async (req, res) => {
+    try {
+      const { claim, allowed } = await loadClaimForPassenger(req);
+      if (!claim) return res.status(404).json({ message: "Claim not found" });
+      if (!allowed) return res.status(403).json({ message: "This link is not valid for this claim" });
+      res.json(kitStatus(claim));
+    } catch (error) {
+      console.error("Kit status error:", error);
+      res.status(500).json({ message: "Failed to load the kit" });
+    }
+  });
+
+  // Choose the kit. Free until KIT_PRICE_CENTS is set; then a Stripe checkout unlocks it.
+  app.post("/api/claims/:claimId/kit", async (req, res) => {
+    try {
+      const { claim, allowed } = await loadClaimForPassenger(req);
+      if (!claim) return res.status(404).json({ message: "Claim not found" });
+      if (!allowed) return res.status(403).json({ message: "This link is not valid for this claim" });
+      const pricing = pricingConfig();
+      let updated = claim.serviceLevel === "kit" ? claim : await storage.updateClaim(claim.id, { serviceLevel: "kit" });
+      if (pricing.kitRequiresPayment && !updated.kitPaidAt) {
+        if (!isStripeConfigured()) {
+          return res.status(503).json({ message: "Online payment is not available yet. Write to us and we will send the kit by email.", code: "PAYMENTS_NOT_CONFIGURED" });
+        }
+        const session = await createKitCheckout(updated, pricing.kitPriceCents);
+        updated = await storage.updateClaim(updated.id, { kitStripeSessionId: session.id });
+        await storage.addClaimEvent({ claimId: claim.id, type: "payment", message: "Kit payment link created", metadata: { sessionId: session.id } });
+        return res.json({ ...kitStatus(updated), paymentUrl: session.url });
+      }
+      if (claim.serviceLevel !== "kit") {
+        await storage.addClaimEvent({ claimId: claim.id, type: "system", message: "Passenger chose the self-serve kit" });
+        void sendStageEmail(updated, "kit_ready");
+      }
+      res.json(kitStatus(updated));
+    } catch (error) {
+      console.error("Kit error:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to prepare the kit" });
+    }
+  });
+
+  // Passenger records what happened with the airline (kit path).
+  app.post("/api/claims/:claimId/kit/progress", async (req, res) => {
+    try {
+      const { claim, allowed } = await loadClaimForPassenger(req);
+      if (!claim) return res.status(404).json({ message: "Claim not found" });
+      if (!allowed) return res.status(403).json({ message: "This link is not valid for this claim" });
+      const parsed = z.object({ step: z.enum(["sent", "refused", "paid"]), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() }).safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "step is required" });
+      const when = parsed.data.date ? new Date(`${parsed.data.date}T12:00:00Z`) : new Date();
+      let updated = claim;
+      if (parsed.data.step === "sent") {
+        updated = await storage.updateClaim(claim.id, { airlineContactedAt: when, airlineDeadlineAt: new Date(when.getTime() + AIRLINE_RESPONSE_DAYS * 86400000) });
+        await storage.updateClaimStatus(claim.id, "under-review", "Passenger sent the demand letter to the airline");
+        await storage.addClaimEvent({ claimId: claim.id, type: "letter", message: `Passenger reports sending the demand letter on ${when.toISOString().slice(0, 10)}`, actorEmail: claim.email });
+      } else if (parsed.data.step === "refused") {
+        updated = await storage.updateClaim(claim.id, { airlineRefusedAt: when });
+        await storage.addClaimEvent({ claimId: claim.id, type: "letter", message: "Passenger reports the airline refused", actorEmail: claim.email });
+      } else {
+        updated = await storage.updateClaimStatus(claim.id, "paid", "Passenger reports the airline paid (self-serve kit)");
+        await storage.addClaimEvent({ claimId: claim.id, type: "payment", message: "Passenger reports being paid by the airline (kit)", actorEmail: claim.email });
+      }
+      res.json(kitStatus(updated));
+    } catch (error) {
+      console.error("Kit progress error:", error);
+      res.status(500).json({ message: "Failed to save progress" });
+    }
+  });
+
+  app.get("/api/claims/:claimId/kit.pdf", async (req, res) => {
+    try {
+      const { claim, allowed } = await loadClaimForPassenger(req);
+      if (!claim) return res.status(404).json({ message: "Claim not found" });
+      if (!allowed) return res.status(403).json({ message: "This link is not valid for this claim" });
+      if (pricingConfig().kitRequiresPayment && !claim.kitPaidAt) return res.status(402).json({ message: "The kit is unlocked after payment" });
+      const pdf = await renderKitPdf(claim);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `inline; filename="${kitFileName(claim.claimId)}"`);
+      res.send(pdf);
+    } catch (error) {
+      console.error("Kit PDF error:", error);
+      res.status(500).json({ message: "Failed to generate the kit" });
+    }
+  });
+
+  app.get("/api/claims/:claimId/small-claims.pdf", async (req, res) => {
+    try {
+      const { claim, allowed } = await loadClaimForPassenger(req);
+      if (!claim) return res.status(404).json({ message: "Claim not found" });
+      if (!allowed) return res.status(403).json({ message: "This link is not valid for this claim" });
+      const events = await storage.getClaimEvents(claim.id);
+      const pdf = await renderSmallClaimsPdf(claim, [...events].reverse());
+      await storage.addClaimEvent({ claimId: claim.id, type: "system", message: "Small-claims file generated", actorEmail: req.user?.email ?? claim.email });
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `inline; filename="${smallClaimsFileName(claim.claimId)}"`);
+      res.send(pdf);
+    } catch (error) {
+      console.error("Small claims PDF error:", error);
+      res.status(500).json({ message: "Failed to generate the file" });
+    }
+  });
+
+  // Stripe: checkout.session.completed marks the commission paid.
+  app.post("/api/stripe/webhook", async (req, res) => {
+    const rawBody = (req as typeof req & { rawBody?: Buffer }).rawBody;
+    if (!rawBody || !verifyStripeSignature(rawBody, req.get("Stripe-Signature"))) {
+      return res.status(400).json({ message: "Invalid signature" });
+    }
+    try {
+      const event = req.body as { type?: string; data?: { object?: { id?: string; payment_status?: string; metadata?: { kind?: string } } } };
+      if (event.type === "checkout.session.completed" && event.data?.object?.id && event.data.object.payment_status === "paid" && event.data.object.metadata?.kind === "kit") {
+        const claim = await storage.getClaimByKitSession(event.data.object.id);
+        if (claim && !claim.kitPaidAt) {
+          const updated = await storage.updateClaim(claim.id, { kitPaidAt: new Date(), serviceLevel: "kit" });
+          await storage.addClaimEvent({ claimId: claim.id, type: "payment", message: "Self-serve kit paid through Stripe", metadata: { sessionId: event.data.object.id } });
+          void sendStageEmail(updated, "kit_ready");
+        }
+        return res.json({ received: true });
+      }
+      if (event.type === "checkout.session.completed" && event.data?.object?.id && event.data.object.payment_status === "paid") {
+        const claim = await storage.getClaimByStripeSession(event.data.object.id);
+        if (claim && claim.paymentStatus !== "paid") {
+          const updated = await storage.updateClaim(claim.id, { paymentStatus: "paid", paidAt: new Date() });
+          await storage.updateClaimStatus(claim.id, "paid", "Commission paid through Stripe");
+          await storage.addClaimEvent({ claimId: claim.id, type: "payment", message: "Commission paid through Stripe", metadata: { sessionId: event.data.object.id } });
+          void sendStageEmail({ ...updated, status: "paid" }, "paid");
+        }
+      }
+      res.json({ received: true });
+    } catch (error) {
+      console.error("Stripe webhook error:", error);
+      res.status(500).json({ message: "Webhook processing failed" });
+    }
+  });
+
+  // One-click unsubscribe (link signed with SESSION_SECRET, so it works without login).
+  app.get("/api/unsubscribe", async (req, res) => {
+    const email = typeof req.query.email === "string" ? req.query.email.toLowerCase() : "";
+    const sig = typeof req.query.sig === "string" ? req.query.sig : "";
+    try {
+      if (!email || !sig || !verifyEmailSignature(email, sig)) {
+        return res.redirect("/unsubscribed?ok=0");
+      }
+      const user = await storage.getUserByEmail(email);
+      if (user) await storage.updateUser(user.id, { emailMarketingConsent: false });
+      await consentManager.recordConsent({
+        consentType: "emailMarketing",
+        userEmail: email,
+        userName: user ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || email : email,
+        timestamp: new Date().toISOString(),
+        ipAddress: req.ip,
+        userAgent: req.get("User-Agent"),
+        documentVersion: "1.0",
+        agreed: false,
+      });
+      res.redirect("/unsubscribed?ok=1");
+    } catch (error) {
+      console.error("Unsubscribe error:", error);
+      res.redirect("/unsubscribed?ok=0");
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // FAQ, assistant, voice search
+  // -------------------------------------------------------------------------
   app.get("/api/faqs", async (req, res) => {
     try {
       const { search } = req.query;
-      
-      let faqs;
-      if (search && typeof search === 'string') {
-        faqs = await storage.searchFaqs(search);
-      } else {
-        faqs = await storage.getAllFaqs();
-      }
-
+      const faqs =
+        search && typeof search === "string" && search.trim()
+          ? await storage.searchFaqs(search.trim())
+          : await storage.getAllFaqs();
       res.json(faqs);
     } catch (error) {
       console.error("FAQ retrieval error:", error);
@@ -563,143 +1333,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Chatbot endpoint
   app.post("/api/chatbot", async (req, res) => {
     try {
-      const { query, context } = req.body;
-      
-      const response = await handleChatbotQuery(query, context);
-      res.json(response);
+      const parsed = z.object({ query: z.string().trim().min(1).max(2000), context: z.string().max(2000).optional() }).safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Please enter a question", isHelpful: false });
+      }
+      res.json(await handleChatbotQuery(parsed.data.query, parsed.data.context));
     } catch (error) {
       console.error("Chatbot error:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: "I'm experiencing technical difficulties. Please contact our support team.",
-        isHelpful: false 
+        isHelpful: false,
       });
     }
   });
 
-  // Voice search endpoint
   app.post("/api/voice-search", async (req, res) => {
     try {
-      const { query } = req.body;
-      
-      // Search FAQs based on voice query
-      const faqs = await storage.searchFaqs(query);
-      
-      // If no direct FAQ matches, use chatbot for response
-      if (faqs.length === 0) {
-        const chatbotResponse = await handleChatbotQuery(query);
-        res.json({
-          type: 'chatbot',
-          response: chatbotResponse.message,
-        });
-      } else {
-        res.json({
-          type: 'faq',
-          faqs: faqs.slice(0, 3), // Return top 3 matches
-        });
+      const parsed = z.object({ query: z.string().trim().min(1).max(2000) }).safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Please say or type a question" });
       }
+      const faqs = await storage.searchFaqs(parsed.data.query);
+      if (faqs.length === 0) {
+        const chatbotResponse = await handleChatbotQuery(parsed.data.query);
+        return res.json({ type: "chatbot", response: chatbotResponse.message });
+      }
+      res.json({ type: "faq", faqs: faqs.slice(0, 3) });
     } catch (error) {
       console.error("Voice search error:", error);
       res.status(500).json({ message: "Voice search failed" });
     }
   });
 
-  // Statistics endpoint
-  app.get("/api/stats", async (req, res) => {
+  // Real numbers only; nothing invented when the database is empty.
+  app.get("/api/stats", async (_req, res) => {
     try {
-      // Get basic stats from database
       const claims = await storage.getAllClaims();
-      const successfulClaims = claims.filter(c => c.status === 'paid');
-      
-      const totalCompensation = successfulClaims.reduce((sum, claim) => {
-        return sum + (parseFloat(claim.compensationAmount || '0'));
-      }, 0);
-
-      const avgCompensation = successfulClaims.length > 0 
-        ? Math.round(totalCompensation / successfulClaims.length)
-        : 580;
-
-      // Try to get enhanced stats from Airtable
-      try {
-        const airtableStats = await airtableService.calculateCommissionMetrics();
-        res.json({
-          totalClaims: airtableStats.totalClaims || claims.length,
-          successRate: Math.round(airtableStats.successRate || (successfulClaims.length / Math.max(claims.length, 1)) * 100),
-          avgCompensation: Math.round(airtableStats.averageCommission || avgCompensation),
-          commissionRate: 15,
-        });
-      } catch (airtableError) {
-        // Fallback to database stats
-        res.json({
-          totalClaims: claims.length,
-          successRate: Math.round((successfulClaims.length / Math.max(claims.length, 1)) * 100),
-          avgCompensation,
-          commissionRate: 15,
-        });
-      }
-    } catch (error) {
-      console.error("Stats retrieval error:", error);
+      const paidClaims = claims.filter((claim) => claim.status === "paid");
+      const totalCompensation = paidClaims.reduce((sum, claim) => sum + Number(claim.compensationAmount ?? 0), 0);
       res.json({
-        totalClaims: 12847,
-        successRate: 94,
-        avgCompensation: 580,
+        totalClaims: claims.length,
+        successRate: claims.length > 0 ? Math.round((paidClaims.length / claims.length) * 100) : 0,
+        avgCompensation: paidClaims.length > 0 ? Math.round(totalCompensation / paidClaims.length) : 0,
         commissionRate: 15,
       });
+    } catch (error) {
+      console.error("Stats retrieval error:", error);
+      res.status(500).json({ message: "Failed to load statistics" });
     }
   });
 
-  // Consent Management API Endpoints
-  
-  // Get user consent audit trail
-  app.get("/api/consent/audit/:email", async (req, res) => {
+  // -------------------------------------------------------------------------
+  // Consent audit trail (admin only; contains names, emails and IP addresses)
+  // -------------------------------------------------------------------------
+  app.get("/api/consent/audit/:email", isSeniorAdmin, async (req, res) => {
     try {
-      const { email } = req.params;
-      const auditTrail = await consentManager.generateUserAuditTrail(email);
-      res.json(auditTrail);
+      res.json(await consentManager.generateUserAuditTrail(req.params.email));
     } catch (error) {
       console.error("Error fetching consent audit trail:", error);
       res.status(500).json({ message: "Failed to fetch consent audit trail" });
     }
   });
 
-  // Validate user consent status
-  app.post("/api/consent/validate", async (req, res) => {
+  app.post("/api/consent/validate", isSeniorAdmin, async (req, res) => {
     try {
-      const { email, requiredConsents } = req.body;
-      const validation = await consentManager.validateUserConsent(email, requiredConsents);
-      res.json(validation);
+      const parsed = z.object({ email: z.string().email(), requiredConsents: z.array(z.string()).default([]) }).safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "email and requiredConsents are required" });
+      }
+      res.json(await consentManager.validateUserConsent(parsed.data.email, parsed.data.requiredConsents));
     } catch (error) {
       console.error("Error validating consent:", error);
       res.status(500).json({ message: "Failed to validate consent" });
     }
   });
 
-  // Export consent records for compliance
-  app.get("/api/consent/export", async (req, res) => {
+  app.get("/api/consent/export", isSeniorAdmin, async (req, res) => {
     try {
       const { startDate, endDate } = req.query;
-      const start = startDate ? new Date(startDate as string) : undefined;
-      const end = endDate ? new Date(endDate as string) : undefined;
-      
-      const records = await consentManager.exportConsentRecords(start, end);
-      res.json(records);
+      const start = typeof startDate === "string" && startDate ? new Date(startDate) : undefined;
+      const end = typeof endDate === "string" && endDate ? new Date(endDate) : undefined;
+      res.json(await consentManager.exportConsentRecords(start, end));
     } catch (error) {
       console.error("Error exporting consent records:", error);
       res.status(500).json({ message: "Failed to export consent records" });
     }
   });
 
-  // Record individual consent (for manual consent tracking)
-  app.post("/api/consent/record", async (req, res) => {
+  app.post("/api/consent/record", isAuthenticated, async (req, res) => {
     try {
-      const consentRecord = req.body;
-      consentRecord.ipAddress = req.ip;
-      consentRecord.userAgent = req.get('User-Agent');
-      consentRecord.timestamp = new Date().toISOString();
-      
-      const filename = await consentManager.recordConsent(consentRecord);
+      const parsed = consentRecordInputSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0]?.message ?? "Invalid consent record" });
+      }
+      const filename = await consentManager.recordConsent({
+        ...parsed.data,
+        ipAddress: req.ip,
+        userAgent: req.get("User-Agent"),
+        timestamp: new Date().toISOString(),
+      });
       res.json({ message: "Consent recorded successfully", filename });
     } catch (error) {
       console.error("Error recording consent:", error);
@@ -707,6 +1441,5 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  const httpServer = createServer(app);
-  return httpServer;
+  return createServer(app);
 }

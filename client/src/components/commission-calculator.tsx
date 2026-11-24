@@ -3,25 +3,27 @@ import { useMutation } from "@tanstack/react-query";
 import { Calculator, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent } from "@/components/ui/card";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
-import { generateClaimId } from "@/lib/claim-id";
-import { delayReasons, getDelayReasonValidity } from "@/data/airlines";
+import { airlines, delayReasons, bandsForIssue, getReasonStatus, ISSUE_TYPES, type CompensationEstimate } from "@shared/appr";
 import { ApprValidationModal } from "./appr-validation-modal";
+import { useLang, useDynamicT } from "@/i18n";
 
-interface CalculationResult {
-  compensationAmount: number;
-  commissionAmount: number;
-  finalAmount: number;
-  claimId?: string;
-  mealVoucherDeduction?: number;
+interface CalculationResult extends CompensationEstimate {
   explanation?: string;
 }
 
+const OTHER_LARGE = "other-large";
+const OTHER_SMALL = "other-small";
+
+const largeAirlines = airlines.filter((airline) => airline.category === "large");
+const smallAirlines = airlines.filter((airline) => airline.category === "small");
+
 export function CommissionCalculator() {
-  const [email, setEmail] = useState<string>("");
-  const [distance, setDistance] = useState<string>("");
+  const { t } = useLang();
+  const dt = useDynamicT();
+  const [issueType, setIssueType] = useState<string>("delayed");
+  const [airline, setAirline] = useState<string>("");
   const [delayDuration, setDelayDuration] = useState<string>("");
   const [delayReason, setDelayReason] = useState<string>("");
   const [mealVouchers, setMealVouchers] = useState<string>("");
@@ -29,52 +31,48 @@ export function CommissionCalculator() {
   const [showApprModal, setShowApprModal] = useState<boolean>(false);
 
   const calculateMutation = useMutation({
-    mutationFn: async (data: { 
-      email: string;
-      distance: string; 
-      delayDuration: number;
+    mutationFn: async (data: {
+      issueType: string;
+      airline?: string;
+      carrierSize?: "large" | "small";
+      delayDuration: string;
       delayReason: string;
       mealVouchers: string;
-      claimId: string;
-    }) => {
-      const response = await apiRequest('POST', '/api/calculate-compensation', data);
+    }): Promise<CalculationResult> => {
+      const response = await apiRequest("POST", "/api/calculate-compensation", data);
       return response.json();
     },
-    onSuccess: (data: CalculationResult) => {
-      setResult(data);
-    },
+    onSuccess: (data) => setResult(data),
   });
 
-  const handleCalculate = () => {
-    if (!email || !distance || !delayDuration || !delayReason) {
-      alert('Please fill in all required fields including email, distance, delay duration, and delay reason');
-      return;
-    }
+  const bands = bandsForIssue(issueType);
+  const canCalculate = !!airline && !!delayDuration && !!delayReason && bands.some((b) => b.value === delayDuration);
 
-    // APPR validation - check if delay reason is admissible
-    if (!getDelayReasonValidity(delayReason)) {
-      setShowApprModal(true);
-      return;
-    }
-
-    const claimId = generateClaimId(email);
-    const delayHours = parseInt(delayDuration);
-    calculateMutation.mutate({ 
-      email,
-      distance, 
-      delayDuration: delayHours,
+  const runCalculation = () => {
+    calculateMutation.mutate({
+      issueType,
+      airline: airline === OTHER_LARGE || airline === OTHER_SMALL ? undefined : airline,
+      carrierSize: airline === OTHER_LARGE ? "large" : airline === OTHER_SMALL ? "small" : undefined,
+      delayDuration,
       delayReason,
       mealVouchers,
-      claimId
     });
   };
 
-  const scrollToClaims = () => {
-    const element = document.getElementById('claims');
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+  const handleCalculate = () => {
+    if (!canCalculate) return;
+    if (getReasonStatus(delayReason) === "inadmissible") {
+      setShowApprModal(true);
+      return;
     }
+    runCalculation();
   };
+
+  const scrollToClaims = () => document.getElementById("claims")?.scrollIntoView({ behavior: "smooth" });
+
+  const carrierLabel = result
+    ? result.airlineName ?? (result.carrierSize === "large" ? t("calc.carrierLarge") : t("calc.carrierSmall"))
+    : "";
 
   return (
     <section id="calculator" className="py-8 bg-muted">
@@ -82,83 +80,70 @@ export function CommissionCalculator() {
         <div className="win98-panel mb-6">
           <h2 className="text-lg font-bold text-foreground mb-2">
             <Calculator className="inline-block w-4 h-4 mr-2" />
-            Commission Calculator
+            {t("calc.title")}
           </h2>
-          <p className="text-xs text-muted-foreground">
-            See exactly what you'll receive after our 15% commission fee
-          </p>
+          <p className="text-xs text-muted-foreground">{t("calc.lead")}</p>
         </div>
 
         <div className="win98-panel">
-          <div className="grid lg:grid-cols-2 gap-6 items-center">
+          <div className="grid lg:grid-cols-2 gap-6 items-start">
             <div>
-              <h3 className="text-sm font-bold mb-4">
-                Calculate Your Compensation
-              </h3>
-              
+              <h3 className="text-sm font-bold mb-4">{t("calc.heading")}</h3>
+
               <div className="space-y-3 mb-4">
                 <div>
-                  <label className="block text-xs font-bold mb-1">
-                    Email Address *
-                  </label>
-                  <Input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="your.email@example.com"
-                    className="win98-inset text-xs"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold mb-1">
-                    Flight Distance *
-                  </label>
-                  <Select value={distance} onValueChange={setDistance}>
-                    <SelectTrigger className="win98-inset text-xs">
-                      <SelectValue placeholder="Select distance" />
-                    </SelectTrigger>
+                  <label className="block text-xs font-bold mb-1">{t("calc.issue")}</label>
+                  <Select value={issueType} onValueChange={(value) => { setIssueType(value); setDelayDuration(""); }}>
+                    <SelectTrigger className="win98-inset text-xs"><SelectValue placeholder={t("calc.issuePlaceholder")} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1500">Short haul (up to 1,500 km)</SelectItem>
-                      <SelectItem value="3500">Medium haul (1,500-3,500 km)</SelectItem>
-                      <SelectItem value="3500+">Long haul (over 3,500 km)</SelectItem>
+                      {ISSUE_TYPES.map((type) => (
+                        <SelectItem key={type} value={type}>{dt("issue", type)}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 <div>
-                  <label className="block text-xs font-bold mb-1">
-                    Delay Duration *
-                  </label>
+                  <label className="block text-xs font-bold mb-1">{t("calc.airline")}</label>
+                  <Select value={airline} onValueChange={setAirline}>
+                    <SelectTrigger className="win98-inset text-xs"><SelectValue placeholder={t("calc.airlinePlaceholder")} /></SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>{t("calc.largeGroup")}</SelectLabel>
+                        {largeAirlines.map((item) => <SelectItem key={item.name} value={item.name}>{item.name}</SelectItem>)}
+                        <SelectItem value={OTHER_LARGE}>{t("calc.otherLarge")}</SelectItem>
+                      </SelectGroup>
+                      <SelectGroup>
+                        <SelectLabel>{t("calc.smallGroup")}</SelectLabel>
+                        {smallAirlines.map((item) => <SelectItem key={item.name} value={item.name}>{item.name}</SelectItem>)}
+                        <SelectItem value={OTHER_SMALL}>{t("calc.otherSmall")}</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold mb-1">{t("calc.delay")}</label>
                   <Select value={delayDuration} onValueChange={setDelayDuration}>
-                    <SelectTrigger className="win98-inset text-xs">
-                      <SelectValue placeholder="Select delay duration" />
-                    </SelectTrigger>
+                    <SelectTrigger className="win98-inset text-xs"><SelectValue placeholder={t("calc.delayPlaceholder")} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="3">3–6 hours</SelectItem>
-                      <SelectItem value="6">6–9 hours</SelectItem>
-                      <SelectItem value="9">9+ hours</SelectItem>
+                      {bands.map((band) => <SelectItem key={band.value} value={band.value}>{dt("band", band.value)}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold mb-1">
-                    Delay Reason *
-                  </label>
+                  <label className="block text-xs font-bold mb-1">{t("calc.reason")}</label>
                   <Select value={delayReason} onValueChange={setDelayReason}>
-                    <SelectTrigger className="win98-inset text-xs">
-                      <SelectValue placeholder="Select delay reason" />
-                    </SelectTrigger>
+                    <SelectTrigger className="win98-inset text-xs"><SelectValue placeholder={t("calc.reasonPlaceholder")} /></SelectTrigger>
                     <SelectContent>
                       {delayReasons.map((reason) => (
-                        <SelectItem 
-                          key={reason.value} 
+                        <SelectItem
+                          key={reason.value}
                           value={reason.value}
-                          className={!reason.valid ? "text-red-600 dark:text-red-400" : ""}
+                          className={!reason.valid ? "text-red-600 dark:text-red-400" : reason.status === "unknown" ? "font-bold" : ""}
                         >
-                          {reason.label} {!reason.valid && "❌"}
+                          {dt("reason", reason.value)} {!reason.valid && "❌"}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -166,93 +151,81 @@ export function CommissionCalculator() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold mb-1">
-                    Meal Vouchers Received
-                  </label>
-                  <Input
-                    value={mealVouchers}
-                    onChange={(e) => setMealVouchers(e.target.value)}
-                    placeholder="e.g., $15 or None"
-                    className="win98-inset text-xs"
-                  />
-                  <div className="text-xs text-muted-foreground mt-1">
-                    If you received meal vouchers, specify amount in CAD. Otherwise enter "None".
-                  </div>
+                  <label className="block text-xs font-bold mb-1">{t("calc.vouchers")}</label>
+                  <Input value={mealVouchers} onChange={(e) => setMealVouchers(e.target.value)} placeholder={t("calc.vouchersPlaceholder")} className="win98-inset text-xs" />
+                  <div className="text-xs text-muted-foreground mt-1">{t("calc.vouchersHelp")}</div>
                 </div>
               </div>
 
-              <Button 
-                onClick={handleCalculate}
-                disabled={calculateMutation.isPending || !email || !distance || !delayDuration || !delayReason}
-                className="btn-primary"
-              >
+              <Button onClick={handleCalculate} disabled={calculateMutation.isPending || !canCalculate} className="btn-primary">
                 <Calculator className="mr-2 h-4 w-4" />
-                {calculateMutation.isPending ? "Calculating..." : "Calculate Compensation"}
+                {calculateMutation.isPending ? t("calc.calculating") : t("calc.button")}
               </Button>
+              {calculateMutation.isError && <p className="text-xs text-destructive mt-2">{calculateMutation.error.message}</p>}
             </div>
 
             {result && (
               <div className="win98-panel">
-                <h4 className="text-sm font-bold mb-4">
-                  Your Compensation Breakdown
-                </h4>
-                
-                {result.claimId && (
-                  <div className="mb-4 p-2 win98-inset">
-                    <div className="text-xs font-bold mb-1">Claim ID Generated:</div>
-                    <div className="text-xs font-mono bg-accent text-accent-foreground p-1">
-                      {result.claimId}
+                <h4 className="text-sm font-bold mb-4">{t("calc.resultTitle")}</h4>
+
+                {!result.eligible ? (
+                  <div className="space-y-3">
+                    <div className="p-2 win98-inset"><p className="text-xs">{result.reason}</p></div>
+                    {result.reasonStatus === "inadmissible" && (
+                      <>
+                        <p className="text-xs text-muted-foreground">{t("calc.stillSubmit")}</p>
+                        <Button onClick={scrollToClaims} className="btn-accent w-full text-xs">
+                          {t("calc.submitNow")} <ArrowRight className="ml-2 h-3 w-3" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-2 mb-4">
+                      <div className="flex justify-between items-center text-xs">
+                        <span>{result.issueType === "denied-boarding" ? t("calc.deniedBoarding") : t("calc.appr", { carrier: carrierLabel })}:</span>
+                        <span className="font-bold">${result.baseAmount}</span>
+                      </div>
+                      {result.mealVoucherDeduction > 0 && (
+                        <div className="flex justify-between items-center text-xs">
+                          <span>{t("calc.voucherDeduct")}:</span>
+                          <span className="font-bold">-${result.mealVoucherDeduction}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center text-xs">
+                        <span>{t("calc.total")}:</span>
+                        <span className="font-bold">${result.compensationAmount}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span>{t("calc.commission")}:</span>
+                        <span className="font-bold text-accent">${result.commissionAmount}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs p-2 win98-inset">
+                        <span className="font-bold">{t("calc.youReceive")}:</span>
+                        <span className="font-bold text-secondary">${result.finalAmount}</span>
+                      </div>
                     </div>
-                  </div>
-                )}
-                
-                <div className="space-y-2 mb-4">
-                  <div className="flex justify-between items-center text-xs">
-                    <span>Total Compensation:</span>
-                    <span className="font-bold">
-                      ${result.compensationAmount}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span>Our Commission (15%):</span>
-                    <span className="font-bold text-accent">
-                      ${result.commissionAmount}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs p-2 win98-inset">
-                    <span className="font-bold">You Receive:</span>
-                    <span className="font-bold text-secondary">
-                      ${result.finalAmount}
-                    </span>
-                  </div>
-                </div>
 
-                {result.explanation && (
-                  <div className="mb-4 p-2 win98-inset">
-                    <p className="text-xs">
-                      {result.explanation}
-                    </p>
-                  </div>
-                )}
+                    {result.needsReview && <p className="text-xs text-muted-foreground mb-3">{t("calc.reviewNote")}</p>}
+                    {result.explanation && <div className="mb-4 p-2 win98-inset"><p className="text-xs">{result.explanation}</p></div>}
 
-                <Button 
-                  onClick={scrollToClaims}
-                  className="btn-accent w-full text-xs"
-                >
-                  Submit Your Claim Now
-                  <ArrowRight className="ml-2 h-3 w-3" />
-                </Button>
+                    <Button onClick={scrollToClaims} className="btn-accent w-full text-xs">
+                      {t("calc.submitNow")} <ArrowRight className="ml-2 h-3 w-3" />
+                    </Button>
+                  </>
+                )}
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* APPR Validation Modal */}
       <ApprValidationModal
         isOpen={showApprModal}
         onClose={() => setShowApprModal(false)}
         delayReason={delayReason}
+        onProceed={() => { setShowApprModal(false); runCalculation(); }}
       />
     </section>
   );

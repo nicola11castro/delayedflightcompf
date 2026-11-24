@@ -21,6 +21,11 @@ export class AirtableService {
     this.baseUrl = `https://api.airtable.com/v0/${this.config.baseId}`;
   }
 
+  /** Airtable is an optional mirror; nothing is called unless both values are set. */
+  isConfigured(): boolean {
+    return Boolean(this.config.baseId && this.config.apiKey);
+  }
+
   private async makeRequest(endpoint: string, options: RequestInit = {}): Promise<any> {
     const url = `${this.baseUrl}${endpoint}`;
     const response = await fetch(url, {

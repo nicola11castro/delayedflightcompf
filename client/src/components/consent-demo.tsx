@@ -23,6 +23,7 @@ export function ConsentDemo() {
   
   const [generatedFiles, setGeneratedFiles] = useState<ConsentFile[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const consentLabels = {
     terms: "Terms of Service Agreement",
@@ -38,6 +39,7 @@ export function ConsentDemo() {
 
   const generateConsentFiles = async () => {
     setIsGenerating(true);
+    setError(null);
     const mockUserData = {
       email: "demo.user@example.com",
       firstName: "Demo",
@@ -72,6 +74,10 @@ export function ConsentDemo() {
               timestamp: new Date().toISOString(),
               agreed: true
             });
+          } else {
+            const body = await response.json().catch(() => ({}));
+            setError(body.message || "Could not record consent (sign in required).");
+            break;
           }
         }
       }
@@ -97,8 +103,9 @@ export function ConsentDemo() {
             Systematic Consent File Generation Demo
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Each checkbox creates a uniquely named file with complete audit trail and metadata.
+            Each checkbox creates a database record plus a uniquely named JSON copy with a complete audit trail. Sign in to try it.
           </p>
+          {error && <p className="text-xs text-destructive mt-2">{error}</p>}
         </CardHeader>
         <CardContent className="space-y-6">
           

@@ -61,14 +61,15 @@ export class DocuSignService {
     }
 
     const data = await response.json();
-    this.accessToken = data.access_token;
-    
+    const token = String(data.access_token);
+    this.accessToken = token;
+
     // Set token expiration handling
     setTimeout(() => {
       this.accessToken = null;
     }, (data.expires_in - 300) * 1000); // Refresh 5 minutes before expiry
 
-    return this.accessToken;
+    return token;
   }
 
   private async makeRequest(endpoint: string, options: RequestInit = {}): Promise<any> {
@@ -97,7 +98,7 @@ export class DocuSignService {
       const documentContent = this.generatePOADocument(request);
       
       const envelopeDefinition = {
-        emailSubject: `Power of Attorney - FlightClaim Pro (Claim: ${request.claimId})`,
+        emailSubject: `Power of Attorney - DelayedFlightComp (Claim: ${request.claimId})`,
         documents: [
           {
             documentBase64: Buffer.from(documentContent).toString('base64'),
@@ -148,7 +149,7 @@ export class DocuSignService {
           authenticationMethod: 'none',
           email: request.passengerEmail,
           recipientId: '1',
-          returnUrl: `${process.env.REPLIT_DOMAINS?.split(',')[0] || 'http://localhost:5000'}/api/docusign/callback`,
+          returnUrl: `${process.env.APP_URL || 'http://localhost:5000'}/api/docusign/callback`,
           userName: request.passengerName,
         }),
       });
@@ -206,7 +207,7 @@ export class DocuSignService {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Power of Attorney - FlightClaim Pro</title>
+        <title>Power of Attorney - DelayedFlightComp</title>
         <style>
           body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
           .header { text-align: center; margin-bottom: 30px; }
@@ -226,7 +227,7 @@ export class DocuSignService {
           <p><strong>Email:</strong> ${request.passengerEmail}</p>
           
           <h3>Authorization</h3>
-          <p>I, ${request.passengerName}, hereby authorize FlightClaim Pro to act as my attorney-in-fact for the purpose of:</p>
+          <p>I, ${request.passengerName}, hereby authorize DelayedFlightComp to act as my attorney-in-fact for the purpose of:</p>
           <ul>
             <li>Submitting and pursuing flight compensation claims on my behalf</li>
             <li>Collecting compensation payments directly from airlines</li>
@@ -237,7 +238,7 @@ export class DocuSignService {
           <h3>Commission Agreement</h3>
           <p>I understand and agree that:</p>
           <ul>
-            <li>FlightClaim Pro will charge a 15% commission on successful claims only</li>
+            <li>DelayedFlightComp will charge a 15% commission on successful claims only</li>
             <li>No fees are charged if the claim is unsuccessful</li>
             <li>The commission will be automatically deducted from any compensation received</li>
             <li>I will receive ${((request.compensationAmount - request.commissionAmount) / request.compensationAmount * 100).toFixed(1)}% of the total compensation</li>

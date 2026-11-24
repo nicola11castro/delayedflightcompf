@@ -4,3 +4,11 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+
+# Local secrets
+.env
+.env.*
+!.env.example
+
+# Runtime data (uploaded documents live on disk; consent records live in the database)
+uploads/

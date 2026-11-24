@@ -1,3 +1,38 @@
+// Minimal typings for the Web Speech API (not part of TypeScript's DOM lib).
+interface SpeechRecognitionAlternativeLike {
+  transcript: string;
+  confidence: number;
+}
+interface SpeechRecognitionResultLike {
+  isFinal: boolean;
+  0: SpeechRecognitionAlternativeLike;
+}
+interface SpeechRecognitionEventLike {
+  results: ArrayLike<SpeechRecognitionResultLike>;
+}
+interface SpeechRecognitionErrorEventLike {
+  error: string;
+}
+interface SpeechRecognitionLike {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  maxAlternatives: number;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+}
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  }
+}
+
 interface VoiceSearchResult {
   transcript: string;
   confidence: number;
@@ -10,16 +45,17 @@ interface VoiceSearchOptions {
 }
 
 export class VoiceSearchService {
-  private recognition: SpeechRecognition | null = null;
+  private recognition: SpeechRecognitionLike | null = null;
   private isSupported: boolean;
   private isListening: boolean = false;
 
   constructor() {
-    this.isSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
-    
-    if (this.isSupported) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      this.recognition = new SpeechRecognition();
+    const Recognition =
+      typeof window !== "undefined" ? window.SpeechRecognition || window.webkitSpeechRecognition : undefined;
+    this.isSupported = !!Recognition;
+
+    if (Recognition) {
+      this.recognition = new Recognition();
       this.setupRecognition();
     }
   }
@@ -29,19 +65,19 @@ export class VoiceSearchService {
 
     this.recognition.continuous = false;
     this.recognition.interimResults = false;
-    this.recognition.lang = 'en-US';
+    this.recognition.lang = "en-US";
     this.recognition.maxAlternatives = 1;
   }
 
   public async startListening(options: VoiceSearchOptions = {}): Promise<VoiceSearchResult> {
     return new Promise((resolve, reject) => {
       if (!this.isSupported || !this.recognition) {
-        reject(new Error('Speech recognition is not supported in this browser'));
+        reject(new Error("Speech recognition is not supported in this browser"));
         return;
       }
 
       if (this.isListening) {
-        reject(new Error('Already listening'));
+        reject(new Error("Already listening"));
         return;
       }
 
@@ -101,21 +137,21 @@ export class VoiceSearchService {
 
   public async searchFAQs(query: string): Promise<any> {
     try {
-      const response = await fetch('/api/voice-search', {
-        method: 'POST',
+      const response = await fetch("/api/voice-search", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ query }),
       });
 
       if (!response.ok) {
-        throw new Error('Voice search request failed');
+        throw new Error("Voice search request failed");
       }
 
       return await response.json();
     } catch (error) {
-      console.error('Voice search API error:', error);
+      console.error("Voice search API error:", error);
       throw error;
     }
   }
